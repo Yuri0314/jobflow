@@ -5,10 +5,10 @@
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "corepack pnpm -r build",
     "test": "vitest run",
     "format": "prettier --write .",
-    "check": "pnpm build && pnpm test"
+    "check": "corepack pnpm build && corepack pnpm test"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
