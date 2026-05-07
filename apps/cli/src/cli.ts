@@ -1,11 +1,14 @@
 import { Command } from "commander";
+import { registerIngestCommand } from "./commands/ingest.js";
+import { createFsStore } from "./state/fs-store.js";
 
 export function createCli(): Command {
   const program = new Command();
+  const store = createFsStore(process.env.JOBFLOW_HOME ?? ".jobflow");
 
   program.name("jobflow").description("Personal job-search CLI runtime").version("0.1.0");
 
-  program.command("ingest").description("accept raw job input");
+  registerIngestCommand(program, store);
   program.command("normalize").description("derive a normalized job record");
   program.command("score").description("score a normalized job");
 
