@@ -45,3 +45,12 @@ corepack pnpm --filter @jobflow/cli dev score --job-id "<job_id>" --json
 corepack pnpm --filter @jobflow/cli dev pipeline update --job-id "<job_id>" --status reviewing --priority high --next-action "review and tailor resume" --json
 corepack pnpm --filter @jobflow/cli dev next --json
 ```
+
+## Resume Reference Smoke Test
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+corepack pnpm --filter @jobflow/cli dev resume add --label "Backend Resume" --source-type file --file-path "D:\resumes\backend.pdf" --target-roles "backend,typescript" --default --json
+corepack pnpm --filter @jobflow/cli dev resume list --json
+corepack pnpm --filter @jobflow/cli dev resume set-default --resume-id "<resume_id>" --json
+```
