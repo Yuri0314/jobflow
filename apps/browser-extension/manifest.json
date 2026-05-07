@@ -2,11 +2,15 @@
   "manifest_version": 3,
   "name": "Jobflow Capture",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlJKu7P4P9ip8yXLAmDuXhoWvZ8Gf2fQ9kMvCei0YQwJ0J9QkB6SA+52vwtx9D7w8Xf6mesQpcAJcbZ+MxPrzyliTUgeDmYOtoJSy3hn2JQLTSxUkZIYkK52UWtnB5D2NfW8tZBDj4e9A7lDDPfb5WXr5QAl2es72KbCxfyaLOOek2/lykeD2jPXJkooWYqzoaR2cJ5hDlolnMg+V2fgKsmT3//HonkJeAkgrKW674TDLtML7lfuvz367NTIwyWFZe8B+poZu/TR4yccGtgasIvksnftWR0b3NlwEpZrsUP79og2Gc11Z/m5Xt0kOHLrVqA7lV66jWQY/dfoU8D6xxwIDAQAB",
   "description": "Capture job pages as Jobflow protocol envelopes.",
   "permissions": ["activeTab", "clipboardWrite"],
   "action": {
     "default_title": "Jobflow Capture",
     "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.global.js"
   },
   "content_scripts": [
     {

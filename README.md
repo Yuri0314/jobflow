@@ -105,6 +105,18 @@ Then load `apps/browser-extension/dist` as an unpacked extension in Chromium-bas
 Open a job page, select the useful job description text if needed, click `Capture`, and either
 copy or download the generated JSON.
 
+To verify the extension capture path without manual clicking, run the headed E2E smoke test:
+
+```powershell
+corepack pnpm --filter @jobflow/browser-extension smoke:e2e
+```
+
+The smoke test opens a temporary Chromium-based browser profile, loads the unpacked extension,
+visits a local fixture job page, asks the extension background worker to capture the active tab,
+and verifies that an `ingest_job` envelope was produced. It prefers Microsoft Edge on Windows
+because this environment's Chrome ignores the extension isolation flag; set `EDGE_PATH` or
+`CHROME_PATH` to override the browser executable.
+
 Feed the downloaded envelope into the CLI:
 
 ```powershell

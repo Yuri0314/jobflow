@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsup src/content.ts src/popup.ts --format iife --out-dir dist --clean --no-splitting --target es2020 && node scripts/copy-static.mjs",
+    "build": "tsup src/background.ts src/content.ts src/popup.ts --format iife --out-dir dist --clean --no-splitting --target es2020 && node scripts/copy-static.mjs",
+    "smoke:e2e": "node scripts/smoke-extension.mjs",
     "test": "vitest run tests"
   },
   "dependencies": {

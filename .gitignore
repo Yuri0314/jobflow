@@ -2,4 +2,5 @@ node_modules/
 dist/
 coverage/
 .jobflow/
+apps/browser-extension/.tmp/
 *.log
