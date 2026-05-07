@@ -3,8 +3,8 @@ import { z } from "zod";
 
 export const protocolVersionSchema = z.literal("1");
 
-export const commandRequestTypeSchema = z.enum(["ingest_job"]);
-export const commandResponseTypeSchema = z.enum(["ingest_job_result"]);
+export const commandRequestTypeSchema = z.enum(["ingest_job", "normalize_job"]);
+export const commandResponseTypeSchema = z.enum(["ingest_job_result", "normalize_job_result"]);
 
 export const protocolErrorSchema = z.object({
   code: z.string().min(1),
@@ -20,6 +20,16 @@ export const ingestJobRequestEnvelopeSchema = z.object({
   payload: jobIngestPayloadSchema
 });
 
+export const normalizeJobRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("normalize_job"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    ingest_id: z.string().min(1)
+  })
+});
+
 export const responseEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: commandResponseTypeSchema,
@@ -30,4 +40,5 @@ export const responseEnvelopeSchema = z.object({
 });
 
 export type IngestJobRequestEnvelope = z.infer<typeof ingestJobRequestEnvelopeSchema>;
+export type NormalizeJobRequestEnvelope = z.infer<typeof normalizeJobRequestEnvelopeSchema>;
 export type ResponseEnvelope = z.infer<typeof responseEnvelopeSchema>;

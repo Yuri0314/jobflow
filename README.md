@@ -39,7 +39,7 @@ This repository currently contains the first CLI runtime slice:
 - pipeline and next-action state
 - resume references
 - state inspection and export
-- protocol envelope ingestion for external capture tools
+- protocol envelope ingestion and normalization for external capture tools
 
 ## First Phase Smoke Test
 
@@ -91,5 +91,24 @@ $env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
 }
 '@ | Set-Content -Path "D:\tmp\jobflow-ingest-envelope.json"
 corepack pnpm --filter @jobflow/cli dev protocol ingest-job --input "D:\tmp\jobflow-ingest-envelope.json" --json
+corepack pnpm --filter @jobflow/cli dev state inspect --json
+```
+
+## Protocol Normalize Smoke Test
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+@'
+{
+  "version": "1",
+  "type": "normalize_job",
+  "request_id": "req_smoke_02",
+  "sent_at": "2026-05-07T00:01:00.000Z",
+  "payload": {
+    "ingest_id": "<ingest_id>"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-normalize-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol normalize-job --input "D:\tmp\jobflow-normalize-envelope.json" --json
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
