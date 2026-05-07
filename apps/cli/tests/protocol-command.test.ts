@@ -6,7 +6,8 @@ import {
   runProtocolGetNextActions,
   runProtocolIngestJob,
   runProtocolNormalizeJob,
-  runProtocolScoreJob
+  runProtocolScoreJob,
+  runProtocolUpdatePipeline
 } from "../src/commands/protocol.js";
 import { createFsStore } from "../src/state/fs-store.js";
 
@@ -322,5 +323,108 @@ describe("protocol get-next-actions", () => {
       payload: null
     });
     expect(response.error?.code).toBe("INVALID_PROTOCOL_ENVELOPE");
+  });
+});
+
+describe("protocol update-pipeline", () => {
+  it("updates pipeline state for a normalized job", async () => {
+    const store = createFsStore(dir);
+    const ingest = await runProtocolIngestJob(store, {
+      version: "1",
+      type: "ingest_job",
+      request_id: "req_ingest",
+      sent_at: "2026-05-07T00:00:00.000Z",
+      payload: {
+        source_type: "extension",
+        captured_at: "2026-05-07T00:00:00.000Z",
+        title_hint: "Backend Engineer",
+        company_hint: "Example Tech"
+      }
+    });
+    const normalized = await runProtocolNormalizeJob(store, {
+      version: "1",
+      type: "normalize_job",
+      request_id: "req_normalize",
+      sent_at: "2026-05-07T00:01:00.000Z",
+      payload: {
+        ingest_id: ingest.payload?.ingest_id
+      }
+    });
+
+    const response = await runProtocolUpdatePipeline(store, {
+      version: "1",
+      type: "update_pipeline",
+      request_id: "req_pipeline",
+      sent_at: "2026-05-07T00:04:00.000Z",
+      payload: {
+        job_id: normalized.payload?.job_id,
+        status: "reviewing",
+        priority: "high",
+        next_action: "review and tailor resume"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "update_pipeline_result",
+      request_id: "req_pipeline",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      job_id: normalized.payload?.job_id,
+      status: "updated",
+      pipeline_status: "reviewing",
+      priority: "high",
+      next_action: "review and tailor resume"
+    });
+
+    const state = await store.read();
+    expect(state.pipeline[0]).toMatchObject({
+      job_id: normalized.payload?.job_id,
+      status: "reviewing",
+      priority: "high",
+      next_action: "review and tailor resume"
+    });
+  });
+
+  it("returns a protocol error envelope for invalid pipeline transitions", async () => {
+    const store = createFsStore(dir);
+    const state = await store.read();
+    state.jobs.push({
+      job_id: "job_01",
+      title: "Backend Engineer",
+      company_name: "Example Tech",
+      tags: [],
+      created_at: "2026-05-07T00:00:00.000Z",
+      normalized_at: "2026-05-07T00:00:00.000Z"
+    });
+    state.pipeline.push({
+      job_id: "job_01",
+      status: "saved",
+      priority: "medium",
+      updated_at: "2026-05-07T00:00:00.000Z"
+    });
+    await store.write(state);
+
+    const response = await runProtocolUpdatePipeline(store, {
+      version: "1",
+      type: "update_pipeline",
+      request_id: "req_pipeline_bad",
+      sent_at: "2026-05-07T00:04:00.000Z",
+      payload: {
+        job_id: "job_01",
+        status: "applied"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "update_pipeline_result",
+      request_id: "req_pipeline_bad",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("PIPELINE_UPDATE_FAILED");
   });
 });

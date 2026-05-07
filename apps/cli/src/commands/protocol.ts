@@ -4,6 +4,7 @@ import {
   normalizeJobRequestEnvelopeSchema,
   responseEnvelopeSchema,
   scoreJobRequestEnvelopeSchema,
+  updatePipelineRequestEnvelopeSchema,
   type ResponseEnvelope
 } from "@jobflow/protocol";
 import { jobIngestRecordSchema } from "@jobflow/schema";
@@ -12,6 +13,7 @@ import { Command } from "commander";
 import { z } from "zod";
 import { runNext } from "./next.js";
 import { runNormalize } from "./normalize.js";
+import { runPipelineUpdate } from "./pipeline.js";
 import { runScore } from "./score.js";
 import type { JsonError } from "../output.js";
 import { writeJson } from "../output.js";
@@ -44,6 +46,15 @@ type ProtocolScorePayload = {
 type ProtocolNextActionsPayload = {
   items: Record<string, unknown>[];
   count: number;
+};
+
+type ProtocolUpdatePipelinePayload = {
+  job_id: string;
+  status: "updated";
+  pipeline_status: string;
+  priority: string;
+  next_action: string | null;
+  pipeline: Record<string, unknown>;
 };
 
 type ProtocolIngestOptions = {
@@ -216,6 +227,57 @@ export async function runProtocolGetNextActions(
   );
 }
 
+export async function runProtocolUpdatePipeline(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = updatePipelineRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("update_pipeline_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid update_pipeline request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const payload = parsedEnvelope.data.payload;
+  const updated = await runPipelineUpdate(store, {
+    jobId: payload.job_id,
+    status: payload.status,
+    priority: payload.priority,
+    nextAction: payload.next_action
+  });
+
+  if (!updated.ok) {
+    return createProtocolEnvelope(
+      "update_pipeline_result",
+      parsedEnvelope.data.request_id,
+      false,
+      null,
+      updated.error
+    );
+  }
+
+  return createProtocolEnvelope<ProtocolUpdatePipelinePayload>(
+    "update_pipeline_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      job_id: updated.data.pipeline.job_id,
+      status: "updated",
+      pipeline_status: updated.data.pipeline.status,
+      priority: updated.data.pipeline.priority,
+      next_action: updated.data.pipeline.next_action ?? null,
+      pipeline: updated.data.pipeline
+    },
+    null
+  );
+}
+
 export function registerProtocolCommand(program: Command, store: FsStore): void {
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
@@ -262,6 +324,17 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolGetNextActions(store, rawEnvelope));
     });
+
+  protocol
+    .command("update-pipeline")
+    .description("accept an update_pipeline protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolUpdatePipeline(store, rawEnvelope));
+    });
 }
 
 async function readEnvelopeInput(options: ProtocolIngestOptions): Promise<unknown> {
@@ -294,7 +367,8 @@ function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"
-    | "get_next_actions_result",
+    | "get_next_actions_result"
+    | "update_pipeline_result",
   requestId: string,
   ok: true,
   payload: TPayload,
@@ -305,7 +379,8 @@ function createProtocolEnvelope(
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"
-    | "get_next_actions_result",
+    | "get_next_actions_result"
+    | "update_pipeline_result",
   requestId: string,
   ok: false,
   payload: null,
@@ -316,7 +391,8 @@ function createProtocolEnvelope(
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"
-    | "get_next_actions_result",
+    | "get_next_actions_result"
+    | "update_pipeline_result",
   requestId: string,
   ok: boolean,
   payload: Record<string, unknown> | null,

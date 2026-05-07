@@ -1,4 +1,4 @@
-import { jobIngestPayloadSchema } from "@jobflow/schema";
+import { jobIngestPayloadSchema, pipelineStatusSchema, prioritySchema } from "@jobflow/schema";
 import { z } from "zod";
 
 export const protocolVersionSchema = z.literal("1");
@@ -7,13 +7,15 @@ export const commandRequestTypeSchema = z.enum([
   "ingest_job",
   "normalize_job",
   "score_job",
-  "get_next_actions"
+  "get_next_actions",
+  "update_pipeline"
 ]);
 export const commandResponseTypeSchema = z.enum([
   "ingest_job_result",
   "normalize_job_result",
   "score_job_result",
-  "get_next_actions_result"
+  "get_next_actions_result",
+  "update_pipeline_result"
 ]);
 
 export const protocolErrorSchema = z.object({
@@ -61,6 +63,19 @@ export const getNextActionsRequestEnvelopeSchema = z.object({
   })
 });
 
+export const updatePipelineRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("update_pipeline"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    job_id: z.string().min(1),
+    status: pipelineStatusSchema,
+    priority: prioritySchema.optional(),
+    next_action: z.string().min(1).optional()
+  })
+});
+
 export const responseEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: commandResponseTypeSchema,
@@ -74,4 +89,5 @@ export type IngestJobRequestEnvelope = z.infer<typeof ingestJobRequestEnvelopeSc
 export type NormalizeJobRequestEnvelope = z.infer<typeof normalizeJobRequestEnvelopeSchema>;
 export type ScoreJobRequestEnvelope = z.infer<typeof scoreJobRequestEnvelopeSchema>;
 export type GetNextActionsRequestEnvelope = z.infer<typeof getNextActionsRequestEnvelopeSchema>;
+export type UpdatePipelineRequestEnvelope = z.infer<typeof updatePipelineRequestEnvelopeSchema>;
 export type ResponseEnvelope = z.infer<typeof responseEnvelopeSchema>;

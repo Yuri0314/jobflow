@@ -4,7 +4,8 @@ import {
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
   responseEnvelopeSchema,
-  scoreJobRequestEnvelopeSchema
+  scoreJobRequestEnvelopeSchema,
+  updatePipelineRequestEnvelopeSchema
 } from "../src/index.js";
 
 describe("jobflow protocol", () => {
@@ -148,5 +149,41 @@ describe("jobflow protocol", () => {
     });
 
     expect(result.type).toBe("get_next_actions_result");
+  });
+
+  it("accepts an update_pipeline request envelope", () => {
+    const result = updatePipelineRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "update_pipeline",
+      request_id: "req_05",
+      sent_at: "2026-05-07T00:04:00.000Z",
+      payload: {
+        job_id: "job_01",
+        status: "reviewing",
+        priority: "high",
+        next_action: "review and tailor resume"
+      }
+    });
+
+    expect(result.type).toBe("update_pipeline");
+    expect(result.payload.status).toBe("reviewing");
+  });
+
+  it("accepts an update_pipeline_result response envelope", () => {
+    const result = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "update_pipeline_result",
+      request_id: "req_05",
+      ok: true,
+      payload: {
+        job_id: "job_01",
+        status: "updated",
+        pipeline_status: "reviewing",
+        priority: "high"
+      },
+      error: null
+    });
+
+    expect(result.type).toBe("update_pipeline_result");
   });
 });
