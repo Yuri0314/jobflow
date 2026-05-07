@@ -91,6 +91,27 @@ $env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
 corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-protocol-envelope.json" --json
 ```
 
+## Browser Extension Capture Smoke Test
+
+The browser extension is the first external capture entry. It does not call the local CLI
+directly yet; it captures the active job page and produces an `ingest_job` protocol envelope
+that can be copied or downloaded.
+
+```powershell
+corepack pnpm --filter @jobflow/browser-extension build
+```
+
+Then load `apps/browser-extension/dist` as an unpacked extension in Chromium-based browsers.
+Open a job page, select the useful job description text if needed, click `Capture`, and either
+copy or download the generated JSON.
+
+Feed the downloaded envelope into the CLI:
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "<downloaded-envelope.json>" --json
+```
+
 ## Protocol Ingest Smoke Test
 
 ```powershell

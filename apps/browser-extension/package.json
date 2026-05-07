@@ -1,0 +1,14 @@
+{
+  "name": "@jobflow/browser-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/content.ts src/popup.ts --format iife --out-dir dist --clean --no-splitting --target es2020 && node scripts/copy-static.mjs",
+    "test": "vitest run tests"
+  },
+  "dependencies": {
+    "@jobflow/protocol": "workspace:*"
+  },
+  "devDependencies": {}
+}

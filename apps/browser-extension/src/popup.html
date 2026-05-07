@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jobflow Capture</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <h1>Jobflow</h1>
+        <span id="status" class="status">Ready</span>
+      </header>
+
+      <section class="toolbar" aria-label="Capture actions">
+        <button id="capture" type="button">Capture</button>
+        <button id="copy" type="button" disabled>Copy JSON</button>
+        <button id="download" type="button" disabled>Download</button>
+      </section>
+
+      <textarea id="envelope" spellcheck="false" aria-label="Protocol envelope"></textarea>
+    </main>
+
+    <script src="./popup.global.js"></script>
+  </body>
+</html>
