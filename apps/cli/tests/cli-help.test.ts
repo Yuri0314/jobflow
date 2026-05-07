@@ -13,4 +13,11 @@ describe("jobflow cli", () => {
     expect(help).toContain("protocol");
     expect(help).toContain("next");
   });
+
+  it("prints protocol help with the generic run command", () => {
+    const program = createCli();
+    const protocol = program.commands.find((command) => command.name() === "protocol");
+
+    expect(protocol?.commands.some((command) => command.name() === "run")).toBe(true);
+  });
 });

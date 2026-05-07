@@ -70,6 +70,27 @@ corepack pnpm --filter @jobflow/cli dev state inspect --json
 corepack pnpm --filter @jobflow/cli dev state export --output "D:\tmp\jobflow-smoke-state.json" --json
 ```
 
+## Generic Protocol Smoke Test
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+@'
+{
+  "version": "1",
+  "type": "ingest_job",
+  "request_id": "req_smoke_run_01",
+  "sent_at": "2026-05-07T00:00:00.000Z",
+  "payload": {
+    "source_type": "extension",
+    "captured_at": "2026-05-07T00:00:00.000Z",
+    "title_hint": "TypeScript Backend Engineer",
+    "company_hint": "Example Tech"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-protocol-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-protocol-envelope.json" --json
+```
+
 ## Protocol Ingest Smoke Test
 
 ```powershell

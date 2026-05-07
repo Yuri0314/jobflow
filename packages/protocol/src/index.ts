@@ -11,6 +11,7 @@ export const commandRequestTypeSchema = z.enum([
   "update_pipeline"
 ]);
 export const commandResponseTypeSchema = z.enum([
+  "protocol_error",
   "ingest_job_result",
   "normalize_job_result",
   "score_job_result",

@@ -62,6 +62,31 @@ type ProtocolIngestOptions = {
   stdin?: boolean;
 };
 
+export async function runProtocolEnvelope(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const type = findEnvelopeType(rawEnvelope);
+
+  switch (type) {
+    case "ingest_job":
+      return runProtocolIngestJob(store, rawEnvelope);
+    case "normalize_job":
+      return runProtocolNormalizeJob(store, rawEnvelope);
+    case "score_job":
+      return runProtocolScoreJob(store, rawEnvelope);
+    case "get_next_actions":
+      return runProtocolGetNextActions(store, rawEnvelope);
+    case "update_pipeline":
+      return runProtocolUpdatePipeline(store, rawEnvelope);
+    default:
+      return createProtocolEnvelope("protocol_error", findRequestId(rawEnvelope), false, null, {
+        code: "UNSUPPORTED_PROTOCOL_TYPE",
+        message: type ? `unsupported protocol type: ${type}` : "missing protocol type"
+      });
+  }
+}
+
 export async function runProtocolIngestJob(
   store: FsStore,
   rawEnvelope: unknown
@@ -282,6 +307,17 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
   protocol
+    .command("run")
+    .description("dispatch a protocol envelope by type")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolEnvelope(store, rawEnvelope));
+    });
+
+  protocol
     .command("ingest-job")
     .description("accept an ingest_job protocol envelope")
     .option("--input <input>", "request envelope JSON file")
@@ -362,8 +398,14 @@ function findRequestId(rawEnvelope: unknown): string {
   return parsed.success ? parsed.data.request_id : "unknown";
 }
 
+function findEnvelopeType(rawEnvelope: unknown): string | null {
+  const parsed = z.object({ type: z.string().min(1) }).safeParse(rawEnvelope);
+  return parsed.success ? parsed.data.type : null;
+}
+
 function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
   type:
+    | "protocol_error"
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"
@@ -376,6 +418,7 @@ function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
 ): ResponseEnvelope;
 function createProtocolEnvelope(
   type:
+    | "protocol_error"
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"
@@ -388,6 +431,7 @@ function createProtocolEnvelope(
 ): ResponseEnvelope;
 function createProtocolEnvelope(
   type:
+    | "protocol_error"
     | "ingest_job_result"
     | "normalize_job_result"
     | "score_job_result"

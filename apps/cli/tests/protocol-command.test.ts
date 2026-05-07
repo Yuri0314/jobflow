@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   runProtocolGetNextActions,
+  runProtocolEnvelope,
   runProtocolIngestJob,
   runProtocolNormalizeJob,
   runProtocolScoreJob,
@@ -426,5 +427,54 @@ describe("protocol update-pipeline", () => {
       payload: null
     });
     expect(response.error?.code).toBe("PIPELINE_UPDATE_FAILED");
+  });
+});
+
+describe("protocol run", () => {
+  it("dispatches an envelope by type", async () => {
+    const store = createFsStore(dir);
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "ingest_job",
+      request_id: "req_dispatch_ingest",
+      sent_at: "2026-05-07T00:00:00.000Z",
+      payload: {
+        source_type: "extension",
+        captured_at: "2026-05-07T00:00:00.000Z",
+        title_hint: "Backend Engineer",
+        company_hint: "Example Tech"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "ingest_job_result",
+      request_id: "req_dispatch_ingest",
+      ok: true,
+      error: null
+    });
+
+    const state = await store.read();
+    expect(state.ingests).toHaveLength(1);
+  });
+
+  it("returns a protocol error envelope for an unsupported type", async () => {
+    const response = await runProtocolEnvelope(createFsStore(dir), {
+      version: "1",
+      type: "unknown_command",
+      request_id: "req_unknown",
+      sent_at: "2026-05-07T00:00:00.000Z",
+      payload: {}
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "protocol_error",
+      request_id: "req_unknown",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("UNSUPPORTED_PROTOCOL_TYPE");
   });
 });
