@@ -27,6 +27,15 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.17)
 
+  packages/protocol:
+    dependencies:
+      '@jobflow/schema':
+        specifier: workspace:*
+        version: link:../schema
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
   packages/schema:
     dependencies:
       zod:
