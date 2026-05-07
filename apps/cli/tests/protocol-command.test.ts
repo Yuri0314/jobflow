@@ -2,7 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runProtocolIngestJob, runProtocolNormalizeJob } from "../src/commands/protocol.js";
+import {
+  runProtocolIngestJob,
+  runProtocolNormalizeJob,
+  runProtocolScoreJob
+} from "../src/commands/protocol.js";
 import { createFsStore } from "../src/state/fs-store.js";
 
 let dir: string;
@@ -145,6 +149,85 @@ describe("protocol normalize-job", () => {
       version: "1",
       type: "normalize_job_result",
       request_id: "req_missing",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("protocol score-job", () => {
+  it("scores a normalized job request envelope and returns a protocol result envelope", async () => {
+    const store = createFsStore(dir);
+    const ingest = await runProtocolIngestJob(store, {
+      version: "1",
+      type: "ingest_job",
+      request_id: "req_ingest",
+      sent_at: "2026-05-07T00:00:00.000Z",
+      payload: {
+        source_type: "extension",
+        captured_at: "2026-05-07T00:00:00.000Z",
+        title_hint: "TypeScript Backend Engineer",
+        company_hint: "Example Tech",
+        raw_text: "Node.js TypeScript backend role"
+      }
+    });
+    const normalized = await runProtocolNormalizeJob(store, {
+      version: "1",
+      type: "normalize_job",
+      request_id: "req_normalize",
+      sent_at: "2026-05-07T00:01:00.000Z",
+      payload: {
+        ingest_id: ingest.payload?.ingest_id
+      }
+    });
+    const jobId = normalized.payload?.job_id;
+
+    const response = await runProtocolScoreJob(store, {
+      version: "1",
+      type: "score_job",
+      request_id: "req_score",
+      sent_at: "2026-05-07T00:02:00.000Z",
+      payload: {
+        job_id: jobId
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "score_job_result",
+      request_id: "req_score",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      job_id: jobId,
+      status: "scored",
+      suggested_action: "review"
+    });
+    expect(response.payload?.score_id).toMatch(/^score_/);
+    expect(response.payload?.score).toBeGreaterThanOrEqual(60);
+
+    const state = await store.read();
+    expect(state.scores).toHaveLength(1);
+    expect(state.scores[0]?.job_id).toBe(jobId);
+  });
+
+  it("returns a protocol error envelope when the job does not exist", async () => {
+    const response = await runProtocolScoreJob(createFsStore(dir), {
+      version: "1",
+      type: "score_job",
+      request_id: "req_missing_job",
+      sent_at: "2026-05-07T00:02:00.000Z",
+      payload: {
+        job_id: "job_missing"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "score_job_result",
+      request_id: "req_missing_job",
       ok: false,
       payload: null
     });

@@ -2,6 +2,7 @@ import {
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
   responseEnvelopeSchema,
+  scoreJobRequestEnvelopeSchema,
   type ResponseEnvelope
 } from "@jobflow/protocol";
 import { jobIngestRecordSchema } from "@jobflow/schema";
@@ -9,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { z } from "zod";
 import { runNormalize } from "./normalize.js";
+import { runScore } from "./score.js";
 import type { JsonError } from "../output.js";
 import { writeJson } from "../output.js";
 import { createId } from "../runtime/ids.js";
@@ -26,6 +28,15 @@ type ProtocolNormalizePayload = {
   status: "normalized";
   pipeline_status: string | null;
   job: Record<string, unknown>;
+};
+
+type ProtocolScorePayload = {
+  job_id: string;
+  score_id: string;
+  status: "scored";
+  score: number;
+  suggested_action: string;
+  score_record: Record<string, unknown>;
 };
 
 type ProtocolIngestOptions = {
@@ -120,6 +131,51 @@ export async function runProtocolNormalizeJob(
   );
 }
 
+export async function runProtocolScoreJob(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = scoreJobRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("score_job_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid score_job request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const scored = await runScore(store, { jobId: parsedEnvelope.data.payload.job_id });
+
+  if (!scored.ok) {
+    return createProtocolEnvelope(
+      "score_job_result",
+      parsedEnvelope.data.request_id,
+      false,
+      null,
+      scored.error
+    );
+  }
+
+  return createProtocolEnvelope<ProtocolScorePayload>(
+    "score_job_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      job_id: scored.data.score.job_id,
+      score_id: scored.data.score.score_id,
+      status: "scored",
+      score: scored.data.score.score,
+      suggested_action: scored.data.score.suggested_action,
+      score_record: scored.data.score
+    },
+    null
+  );
+}
+
 export function registerProtocolCommand(program: Command, store: FsStore): void {
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
@@ -143,6 +199,17 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
     .action(async (options: ProtocolIngestOptions) => {
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolNormalizeJob(store, rawEnvelope));
+    });
+
+  protocol
+    .command("score-job")
+    .description("accept a score_job protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolScoreJob(store, rawEnvelope));
     });
 }
 
@@ -172,21 +239,21 @@ function findRequestId(rawEnvelope: unknown): string {
 }
 
 function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
-  type: "ingest_job_result" | "normalize_job_result",
+  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
   requestId: string,
   ok: true,
   payload: TPayload,
   error: null
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type: "ingest_job_result" | "normalize_job_result",
+  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
   requestId: string,
   ok: false,
   payload: null,
   error: JsonError
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type: "ingest_job_result" | "normalize_job_result",
+  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
   requestId: string,
   ok: boolean,
   payload: Record<string, unknown> | null,

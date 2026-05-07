@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
-  responseEnvelopeSchema
+  responseEnvelopeSchema,
+  scoreJobRequestEnvelopeSchema
 } from "../src/index.js";
 
 describe("jobflow protocol", () => {
@@ -71,5 +72,40 @@ describe("jobflow protocol", () => {
     });
 
     expect(result.type).toBe("normalize_job_result");
+  });
+
+  it("accepts a score_job request envelope", () => {
+    const result = scoreJobRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "score_job",
+      request_id: "req_03",
+      sent_at: "2026-05-07T00:02:00.000Z",
+      payload: {
+        job_id: "job_01",
+        resume_id: "resume_01"
+      }
+    });
+
+    expect(result.type).toBe("score_job");
+    expect(result.payload.job_id).toBe("job_01");
+  });
+
+  it("accepts a score_job_result response envelope", () => {
+    const result = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "score_job_result",
+      request_id: "req_03",
+      ok: true,
+      payload: {
+        job_id: "job_01",
+        score_id: "score_01",
+        status: "scored",
+        score: 72,
+        suggested_action: "review"
+      },
+      error: null
+    });
+
+    expect(result.type).toBe("score_job_result");
   });
 });
