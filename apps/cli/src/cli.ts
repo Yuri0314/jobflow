@@ -3,6 +3,7 @@ import { registerIngestCommand } from "./commands/ingest.js";
 import { registerNextCommand } from "./commands/next.js";
 import { registerNormalizeCommand } from "./commands/normalize.js";
 import { registerPipelineCommand } from "./commands/pipeline.js";
+import { registerProtocolCommand } from "./commands/protocol.js";
 import { registerResumeCommand } from "./commands/resume.js";
 import { registerScoreCommand } from "./commands/score.js";
 import { registerStateCommand } from "./commands/state.js";
@@ -18,6 +19,7 @@ export function createCli(): Command {
   registerNormalizeCommand(program, store);
   registerScoreCommand(program, store);
   registerPipelineCommand(program, store);
+  registerProtocolCommand(program, store);
   registerResumeCommand(program, store);
   registerStateCommand(program, store);
   registerNextCommand(program, store);

@@ -32,7 +32,14 @@ jobflow/
 
 ## Status
 
-This repository currently contains the initial design documentation and project skeleton.
+This repository currently contains the first CLI runtime slice:
+
+- raw job ingest
+- simple normalization and scoring
+- pipeline and next-action state
+- resume references
+- state inspection and export
+- protocol envelope ingestion for external capture tools
 
 ## First Phase Smoke Test
 
@@ -61,4 +68,28 @@ corepack pnpm --filter @jobflow/cli dev resume set-default --resume-id "<resume_
 $env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 corepack pnpm --filter @jobflow/cli dev state export --output "D:\tmp\jobflow-smoke-state.json" --json
+```
+
+## Protocol Ingest Smoke Test
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+@'
+{
+  "version": "1",
+  "type": "ingest_job",
+  "request_id": "req_smoke_01",
+  "sent_at": "2026-05-07T00:00:00.000Z",
+  "payload": {
+    "source_type": "extension",
+    "source_site": "boss",
+    "captured_at": "2026-05-07T00:00:00.000Z",
+    "job_url": "https://example.com/job/1",
+    "title_hint": "TypeScript Backend Engineer",
+    "company_hint": "Example Tech"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-ingest-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol ingest-job --input "D:\tmp\jobflow-ingest-envelope.json" --json
+corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```

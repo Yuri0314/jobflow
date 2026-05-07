@@ -10,6 +10,7 @@ describe("jobflow cli", () => {
     expect(help).toContain("normalize");
     expect(help).toContain("score");
     expect(help).toContain("pipeline");
+    expect(help).toContain("protocol");
     expect(help).toContain("next");
   });
 });
