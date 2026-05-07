@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  runProtocolGetNextActions,
   runProtocolIngestJob,
   runProtocolNormalizeJob,
   runProtocolScoreJob
@@ -232,5 +233,94 @@ describe("protocol score-job", () => {
       payload: null
     });
     expect(response.error?.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("protocol get-next-actions", () => {
+  it("returns recommended next actions without mutating state", async () => {
+    const store = createFsStore(dir);
+    const ingest = await runProtocolIngestJob(store, {
+      version: "1",
+      type: "ingest_job",
+      request_id: "req_ingest",
+      sent_at: "2026-05-07T00:00:00.000Z",
+      payload: {
+        source_type: "extension",
+        captured_at: "2026-05-07T00:00:00.000Z",
+        title_hint: "TypeScript Backend Engineer",
+        company_hint: "Example Tech",
+        raw_text: "Node.js TypeScript backend role"
+      }
+    });
+    const normalized = await runProtocolNormalizeJob(store, {
+      version: "1",
+      type: "normalize_job",
+      request_id: "req_normalize",
+      sent_at: "2026-05-07T00:01:00.000Z",
+      payload: {
+        ingest_id: ingest.payload?.ingest_id
+      }
+    });
+    await runProtocolScoreJob(store, {
+      version: "1",
+      type: "score_job",
+      request_id: "req_score",
+      sent_at: "2026-05-07T00:02:00.000Z",
+      payload: {
+        job_id: normalized.payload?.job_id
+      }
+    });
+    const before = await store.read();
+
+    const response = await runProtocolGetNextActions(store, {
+      version: "1",
+      type: "get_next_actions",
+      request_id: "req_next",
+      sent_at: "2026-05-07T00:03:00.000Z",
+      payload: {
+        limit: 1
+      }
+    });
+    const after = await store.read();
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_next_actions_result",
+      request_id: "req_next",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      count: 1
+    });
+    expect(response.payload?.items).toHaveLength(1);
+    expect(response.payload?.items?.[0]).toMatchObject({
+      job_id: normalized.payload?.job_id,
+      recommended_action: "review",
+      priority: "medium"
+    });
+    expect(response.payload?.items?.[0]?.score).toBeGreaterThanOrEqual(60);
+    expect(after).toEqual(before);
+  });
+
+  it("returns a protocol error envelope for invalid request input", async () => {
+    const response = await runProtocolGetNextActions(createFsStore(dir), {
+      version: "1",
+      type: "get_next_actions",
+      request_id: "req_bad_next",
+      sent_at: "2026-05-07T00:03:00.000Z",
+      payload: {
+        limit: 0
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_next_actions_result",
+      request_id: "req_bad_next",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("INVALID_PROTOCOL_ENVELOPE");
   });
 });

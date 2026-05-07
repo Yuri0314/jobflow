@@ -3,11 +3,17 @@ import { z } from "zod";
 
 export const protocolVersionSchema = z.literal("1");
 
-export const commandRequestTypeSchema = z.enum(["ingest_job", "normalize_job", "score_job"]);
+export const commandRequestTypeSchema = z.enum([
+  "ingest_job",
+  "normalize_job",
+  "score_job",
+  "get_next_actions"
+]);
 export const commandResponseTypeSchema = z.enum([
   "ingest_job_result",
   "normalize_job_result",
-  "score_job_result"
+  "score_job_result",
+  "get_next_actions_result"
 ]);
 
 export const protocolErrorSchema = z.object({
@@ -45,6 +51,16 @@ export const scoreJobRequestEnvelopeSchema = z.object({
   })
 });
 
+export const getNextActionsRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("get_next_actions"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    limit: z.number().int().min(1).max(50).optional()
+  })
+});
+
 export const responseEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: commandResponseTypeSchema,
@@ -57,4 +73,5 @@ export const responseEnvelopeSchema = z.object({
 export type IngestJobRequestEnvelope = z.infer<typeof ingestJobRequestEnvelopeSchema>;
 export type NormalizeJobRequestEnvelope = z.infer<typeof normalizeJobRequestEnvelopeSchema>;
 export type ScoreJobRequestEnvelope = z.infer<typeof scoreJobRequestEnvelopeSchema>;
+export type GetNextActionsRequestEnvelope = z.infer<typeof getNextActionsRequestEnvelopeSchema>;
 export type ResponseEnvelope = z.infer<typeof responseEnvelopeSchema>;

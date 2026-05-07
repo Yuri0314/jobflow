@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
   responseEnvelopeSchema,
@@ -107,5 +108,45 @@ describe("jobflow protocol", () => {
     });
 
     expect(result.type).toBe("score_job_result");
+  });
+
+  it("accepts a get_next_actions request envelope", () => {
+    const result = getNextActionsRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "get_next_actions",
+      request_id: "req_04",
+      sent_at: "2026-05-07T00:03:00.000Z",
+      payload: {
+        limit: 5
+      }
+    });
+
+    expect(result.type).toBe("get_next_actions");
+    expect(result.payload.limit).toBe(5);
+  });
+
+  it("accepts a get_next_actions_result response envelope", () => {
+    const result = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "get_next_actions_result",
+      request_id: "req_04",
+      ok: true,
+      payload: {
+        items: [
+          {
+            job_id: "job_01",
+            title: "Backend Engineer",
+            company_name: "Example Tech",
+            recommended_action: "review",
+            priority: "medium",
+            score: 74
+          }
+        ],
+        count: 1
+      },
+      error: null
+    });
+
+    expect(result.type).toBe("get_next_actions_result");
   });
 });

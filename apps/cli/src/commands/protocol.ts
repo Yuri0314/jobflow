@@ -1,4 +1,5 @@
 import {
+  getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
   responseEnvelopeSchema,
@@ -9,6 +10,7 @@ import { jobIngestRecordSchema } from "@jobflow/schema";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { z } from "zod";
+import { runNext } from "./next.js";
 import { runNormalize } from "./normalize.js";
 import { runScore } from "./score.js";
 import type { JsonError } from "../output.js";
@@ -37,6 +39,11 @@ type ProtocolScorePayload = {
   score: number;
   suggested_action: string;
   score_record: Record<string, unknown>;
+};
+
+type ProtocolNextActionsPayload = {
+  items: Record<string, unknown>[];
+  count: number;
 };
 
 type ProtocolIngestOptions = {
@@ -176,6 +183,39 @@ export async function runProtocolScoreJob(
   );
 }
 
+export async function runProtocolGetNextActions(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = getNextActionsRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("get_next_actions_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid get_next_actions request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const next = await runNext(store);
+  const limit = parsedEnvelope.data.payload.limit;
+  const items = limit ? next.data.items.slice(0, limit) : next.data.items;
+
+  return createProtocolEnvelope<ProtocolNextActionsPayload>(
+    "get_next_actions_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      items,
+      count: items.length
+    },
+    null
+  );
+}
+
 export function registerProtocolCommand(program: Command, store: FsStore): void {
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
@@ -211,6 +251,17 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolScoreJob(store, rawEnvelope));
     });
+
+  protocol
+    .command("get-next-actions")
+    .description("accept a get_next_actions protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolGetNextActions(store, rawEnvelope));
+    });
 }
 
 async function readEnvelopeInput(options: ProtocolIngestOptions): Promise<unknown> {
@@ -222,7 +273,7 @@ async function readEnvelopeInput(options: ProtocolIngestOptions): Promise<unknow
     return JSON.parse(await readFile(options.input, "utf8"));
   }
 
-  throw new Error("protocol ingest-job requires --input or --stdin");
+  throw new Error("protocol command requires --input or --stdin");
 }
 
 async function readStdin(): Promise<string> {
@@ -239,21 +290,33 @@ function findRequestId(rawEnvelope: unknown): string {
 }
 
 function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
-  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
+  type:
+    | "ingest_job_result"
+    | "normalize_job_result"
+    | "score_job_result"
+    | "get_next_actions_result",
   requestId: string,
   ok: true,
   payload: TPayload,
   error: null
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
+  type:
+    | "ingest_job_result"
+    | "normalize_job_result"
+    | "score_job_result"
+    | "get_next_actions_result",
   requestId: string,
   ok: false,
   payload: null,
   error: JsonError
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type: "ingest_job_result" | "normalize_job_result" | "score_job_result",
+  type:
+    | "ingest_job_result"
+    | "normalize_job_result"
+    | "score_job_result"
+    | "get_next_actions_result",
   requestId: string,
   ok: boolean,
   payload: Record<string, unknown> | null,
