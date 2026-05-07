@@ -5,6 +5,7 @@ import { registerNormalizeCommand } from "./commands/normalize.js";
 import { registerPipelineCommand } from "./commands/pipeline.js";
 import { registerResumeCommand } from "./commands/resume.js";
 import { registerScoreCommand } from "./commands/score.js";
+import { registerStateCommand } from "./commands/state.js";
 import { createFsStore } from "./state/fs-store.js";
 
 export function createCli(): Command {
@@ -18,6 +19,7 @@ export function createCli(): Command {
   registerScoreCommand(program, store);
   registerPipelineCommand(program, store);
   registerResumeCommand(program, store);
+  registerStateCommand(program, store);
   registerNextCommand(program, store);
 
   return program;

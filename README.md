@@ -54,3 +54,11 @@ corepack pnpm --filter @jobflow/cli dev resume add --label "Backend Resume" --so
 corepack pnpm --filter @jobflow/cli dev resume list --json
 corepack pnpm --filter @jobflow/cli dev resume set-default --resume-id "<resume_id>" --json
 ```
+
+## State Inspection Smoke Test
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
+corepack pnpm --filter @jobflow/cli dev state inspect --json
+corepack pnpm --filter @jobflow/cli dev state export --output "D:\tmp\jobflow-smoke-state.json" --json
+```
