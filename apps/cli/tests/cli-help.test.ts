@@ -25,7 +25,9 @@ describe("jobflow cli", () => {
   it("prints automation help with the search command", () => {
     const program = createCli();
     const automation = program.commands.find((command) => command.name() === "automation");
+    const search = automation?.commands.find((command) => command.name() === "search");
 
     expect(automation?.commands.some((command) => command.name() === "search")).toBe(true);
+    expect(search?.helpInformation()).toContain("--session <session>");
   });
 });

@@ -115,6 +115,76 @@ describe("automation search", () => {
       await close(server);
     }
   });
+
+  it("uses an injected Chromium session and closes it after fixture URL collection", async () => {
+    const openedUrls: string[] = [];
+    let closed = false;
+    const store = createFsStore(dir);
+
+    const response = await runAutomationSearch(
+      store,
+      {
+        site: "fixture",
+        keyword: "Automation",
+        session: "chromium",
+        fixtureUrl: "http://127.0.0.1:12345/search"
+      },
+      {
+        async createChromiumSession() {
+          return {
+            async open(url: string) {
+              openedUrls.push(url);
+              return {
+                url,
+                html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/chromium-cli">
+    <h2 data-job-title>CLI Chromium Engineer</h2>
+    <p data-company>Browser CLI Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Run fixture collection through an injected Chromium session.</p>
+  </article>
+</main>`
+              };
+            },
+            async close() {
+              closed = true;
+            }
+          };
+        }
+      }
+    );
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(openedUrls).toEqual(["http://127.0.0.1:12345/search"]);
+    expect(closed).toBe(true);
+    expect(response.data.result.action_log.map((entry) => entry.action)).toEqual([
+      "open_page",
+      "parse_search_results",
+      "persist_ingests"
+    ]);
+
+    const state = await store.read();
+    expect(state.ingests[0]).toMatchObject({
+      job_url: "https://example.test/jobs/chromium-cli",
+      title_hint: "CLI Chromium Engineer",
+      company_hint: "Browser CLI Co"
+    });
+  });
+
+  it("requires a fixture URL for Chromium session searches", async () => {
+    const response = await runAutomationSearch(createFsStore(dir), {
+      site: "fixture",
+      keyword: "Automation",
+      session: "chromium"
+    });
+
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.error.code).toBe("INVALID_INPUT");
+    expect(response.error.message).toContain("fixtureUrl");
+  });
 });
 
 async function listen(server: Server): Promise<string> {

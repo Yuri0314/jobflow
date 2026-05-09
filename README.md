@@ -104,6 +104,12 @@ To verify the same controller through a real Chromium/Edge DevTools session, run
 corepack pnpm --filter @jobflow/browser-automation smoke:fixture-browser
 ```
 
+The CLI can also use the Chromium session for local fixture URLs:
+
+```powershell
+corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keyword "TypeScript" --fixture-url "<local-fixture-url>" --session chromium --json
+```
+
 ## Generic Protocol Smoke Test
 
 ```powershell

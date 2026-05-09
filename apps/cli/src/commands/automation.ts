@@ -1,9 +1,12 @@
 import {
   createAdapterRegistry,
+  createChromiumPageSession,
   executeSearchTask,
   fetchPageSession,
   fixtureAdapter,
   searchTaskSchema,
+  type AutomationPageSession,
+  type ChromiumPageSession,
   type AutomationResult,
   type SearchTask
 } from "@jobflow/browser-automation";
@@ -16,6 +19,7 @@ import { fail, ok, type JsonResponse, writeJson } from "../output.js";
 const searchOptionsSchema = z.object({
   site: z.enum(["fixture", "boss", "liepin", "lagou", "linkedin"]),
   keyword: z.string().min(1),
+  session: z.enum(["fetch", "chromium"]).default("fetch"),
   city: z.string().min(1).optional(),
   limit: z
     .preprocess((value) => {
@@ -35,9 +39,15 @@ type AutomationSearchData = {
   ingest_ids: string[];
 };
 
+type AutomationSearchDependencies = {
+  fetchSession?: AutomationPageSession;
+  createChromiumSession?: () => Promise<ChromiumPageSession>;
+};
+
 export async function runAutomationSearch(
   store: FsStore,
-  rawOptions: unknown
+  rawOptions: unknown,
+  dependencies: AutomationSearchDependencies = {}
 ): Promise<JsonResponse<AutomationSearchData>> {
   const parsedOptions = searchOptionsSchema.safeParse(rawOptions);
   if (!parsedOptions.success) {
@@ -68,12 +78,36 @@ export async function runAutomationSearch(
     });
   }
 
-  const result = await executeSearchTask(task, {
-    adapterRegistry: createAdapterRegistry([fixtureAdapter]),
-    pageSession: fetchPageSession,
-    pageUrl: parsedOptions.data.fixtureUrl,
-    html: parsedOptions.data.fixtureHtml ?? createDefaultFixtureHtml(task)
-  });
+  const sessionSelection = parsedOptions.data.session;
+  if (sessionSelection === "chromium" && !parsedOptions.data.fixtureUrl) {
+    return fail("automation.search", {
+      code: "INVALID_INPUT",
+      message: "fixtureUrl is required when session is chromium"
+    });
+  }
+
+  const closeableSession =
+    sessionSelection === "chromium"
+      ? await (dependencies.createChromiumSession ?? createDefaultChromiumSession)()
+      : undefined;
+
+  let result: AutomationResult;
+  try {
+    result = await executeSearchTask(task, {
+      adapterRegistry: createAdapterRegistry([fixtureAdapter]),
+      pageSession:
+        sessionSelection === "chromium"
+          ? closeableSession
+          : dependencies.fetchSession ?? fetchPageSession,
+      pageUrl: parsedOptions.data.fixtureUrl,
+      html:
+        parsedOptions.data.fixtureUrl || sessionSelection === "chromium"
+          ? parsedOptions.data.fixtureHtml
+          : parsedOptions.data.fixtureHtml ?? createDefaultFixtureHtml(task)
+    });
+  } finally {
+    await closeableSession?.close();
+  }
   const collected = result.collected;
 
   const records = collected.map((payload) =>
@@ -118,12 +152,17 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .requiredOption("--keyword <keyword>", "search keyword")
     .option("--city <city>", "search city")
     .option("--limit <limit>", "maximum number of jobs to collect")
+    .option("--session <session>", "page session: fetch, chromium", "fetch")
     .option("--fixture-html <fixtureHtml>", "inline fixture HTML for local smoke testing")
     .option("--fixture-url <fixtureUrl>", "local fixture page URL for automation smoke testing")
     .option("--json", "emit JSON output", true)
     .action(async (options) => {
       writeJson(await runAutomationSearch(store, options));
     });
+}
+
+async function createDefaultChromiumSession(): Promise<ChromiumPageSession> {
+  return createChromiumPageSession({ headless: true });
 }
 
 function createDefaultFixtureHtml(task: SearchTask): string {
