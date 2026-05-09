@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsStore } from "@jobflow/runtime";
 import {
+  parseEnvelopeJson,
   runProtocolGetNextActions,
   runProtocolEnvelope,
   runProtocolIngestJob,
@@ -23,6 +24,29 @@ afterEach(async () => {
 });
 
 describe("protocol ingest-job", () => {
+  it("parses JSON envelope text with a UTF-8 BOM", () => {
+    const parsed = parseEnvelopeJson(
+      `\uFEFF{
+        "version": "1",
+        "type": "ingest_job",
+        "request_id": "req_bom",
+        "sent_at": "2026-05-07T00:00:00.000Z",
+        "payload": {
+          "source_type": "extension",
+          "captured_at": "2026-05-07T00:00:00.000Z",
+          "title_hint": "Backend Engineer",
+          "company_hint": "Example Tech"
+        }
+      }`
+    );
+
+    expect(parsed).toMatchObject({
+      version: "1",
+      type: "ingest_job",
+      request_id: "req_bom"
+    });
+  });
+
   it("stores an ingest request envelope and returns a protocol result envelope", async () => {
     const store = createFsStore(dir);
     const response = await runProtocolIngestJob(store, {
@@ -427,6 +451,86 @@ describe("protocol update-pipeline", () => {
       payload: null
     });
     expect(response.error?.code).toBe("PIPELINE_UPDATE_FAILED");
+  });
+});
+
+describe("protocol automation-search", () => {
+  it("dispatches an automation search envelope and persists collected ingests", async () => {
+    const store = createFsStore(dir);
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_automation",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        fixture_html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/protocol-automation">
+    <h2 data-job-title>Protocol Automation Engineer</h2>
+    <p data-company>Protocol Browser Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Collect fixture search results through a protocol envelope.</p>
+  </article>
+</main>`
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_automation",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      task_status: "completed",
+      site: "fixture",
+      collected_count: 1
+    });
+    expect(response.payload?.task_id).toMatch(/^task_/);
+    expect(response.payload?.ingest_ids).toHaveLength(1);
+    expect(response.payload?.action_log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "parse_search_results", status: "completed" }),
+        expect.objectContaining({ action: "persist_ingests", status: "completed" })
+      ])
+    );
+
+    const state = await store.read();
+    expect(state.ingests).toHaveLength(1);
+    expect(state.ingests[0]).toMatchObject({
+      job_url: "https://example.test/jobs/protocol-automation",
+      title_hint: "Protocol Automation Engineer",
+      company_hint: "Protocol Browser Co"
+    });
+  });
+
+  it("returns a protocol error envelope for invalid automation search input", async () => {
+    const response = await runProtocolEnvelope(createFsStore(dir), {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_bad_automation",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "",
+        session: "fetch"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_bad_automation",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("INVALID_PROTOCOL_ENVELOPE");
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  automationSearchRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
@@ -185,5 +186,55 @@ describe("jobflow protocol", () => {
     });
 
     expect(result.type).toBe("update_pipeline_result");
+  });
+
+  it("accepts an automation_search request envelope", () => {
+    const result = automationSearchRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "automation_search",
+      request_id: "req_automation_01",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "TypeScript",
+        city: "Remote",
+        limit: 1,
+        session: "fetch",
+        fixture_html: `<article data-job-card data-url="https://example.test/jobs/1">
+  <h2 data-job-title>TypeScript Engineer</h2>
+  <p data-company>Example Co</p>
+</article>`
+      }
+    });
+
+    expect(result.type).toBe("automation_search");
+    expect(result.payload.session).toBe("fetch");
+  });
+
+  it("accepts an automation_search_result response envelope", () => {
+    const result = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_automation_01",
+      ok: true,
+      payload: {
+        task_id: "task_01",
+        task_status: "completed",
+        site: "fixture",
+        collected_count: 1,
+        ingest_ids: ["ingest_01"],
+        action_log: [
+          {
+            at: "2026-05-09T00:00:01.000Z",
+            action: "parse_search_results",
+            status: "completed"
+          }
+        ]
+      },
+      error: null
+    });
+
+    expect(result.type).toBe("automation_search_result");
+    expect(result.payload?.task_status).toBe("completed");
   });
 });

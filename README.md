@@ -40,7 +40,7 @@ This repository currently contains the first CLI runtime slice:
 - pipeline and next-action state
 - resume references
 - state inspection and export
-- protocol envelope ingestion, normalization, scoring, next-action reads, and pipeline updates for external tools
+- protocol envelope ingestion, normalization, scoring, next-action reads, pipeline updates, and fixture automation search for external tools
 - experimental fixture automation search that collects local fixture results into ingests
 
 ## Long-Term Direction
@@ -129,6 +129,33 @@ $env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
 }
 '@ | Set-Content -Path "D:\tmp\jobflow-protocol-envelope.json"
 corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-protocol-envelope.json" --json
+```
+
+## Protocol Automation Search Smoke Test
+
+External agents can trigger the fixture automation search through the generic protocol
+runner. This keeps the agent-facing contract JSON-based while reusing the same automation
+controller and local state write path as the direct CLI command.
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"
+@'
+{
+  "version": "1",
+  "type": "automation_search",
+  "request_id": "req_automation_smoke_01",
+  "sent_at": "2026-05-09T00:00:00.000Z",
+  "payload": {
+    "site": "fixture",
+    "keyword": "TypeScript",
+    "limit": 1,
+    "session": "fetch",
+    "fixture_html": "<main><article data-job-card data-url=\"https://example.test/jobs/protocol-smoke\"><h2 data-job-title>Protocol Automation Engineer</h2><p data-company>Example Automation Co</p><p data-summary>Collect fixture results through protocol run.</p></article></main>"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-automation-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-automation-envelope.json" --json
+corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 
 ## Browser Extension Capture Smoke Test

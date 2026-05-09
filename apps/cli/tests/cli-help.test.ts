@@ -20,6 +20,9 @@ describe("jobflow cli", () => {
     const protocol = program.commands.find((command) => command.name() === "protocol");
 
     expect(protocol?.commands.some((command) => command.name() === "run")).toBe(true);
+    expect(protocol?.commands.some((command) => command.name() === "automation-search")).toBe(
+      true
+    );
   });
 
   it("prints automation help with the search command", () => {

@@ -8,7 +8,8 @@ export const commandRequestTypeSchema = z.enum([
   "normalize_job",
   "score_job",
   "get_next_actions",
-  "update_pipeline"
+  "update_pipeline",
+  "automation_search"
 ]);
 export const commandResponseTypeSchema = z.enum([
   "protocol_error",
@@ -16,7 +17,8 @@ export const commandResponseTypeSchema = z.enum([
   "normalize_job_result",
   "score_job_result",
   "get_next_actions_result",
-  "update_pipeline_result"
+  "update_pipeline_result",
+  "automation_search_result"
 ]);
 
 export const protocolErrorSchema = z.object({
@@ -77,6 +79,22 @@ export const updatePipelineRequestEnvelopeSchema = z.object({
   })
 });
 
+export const automationSearchRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("automation_search"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    site: z.enum(["fixture", "boss", "liepin", "lagou", "linkedin"]),
+    keyword: z.string().min(1),
+    city: z.string().min(1).optional(),
+    limit: z.number().int().min(1).max(50).optional(),
+    session: z.enum(["fetch", "chromium"]).default("fetch"),
+    fixture_html: z.string().min(1).optional(),
+    fixture_url: z.string().url().optional()
+  })
+});
+
 export const responseEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: commandResponseTypeSchema,
@@ -91,4 +109,7 @@ export type NormalizeJobRequestEnvelope = z.infer<typeof normalizeJobRequestEnve
 export type ScoreJobRequestEnvelope = z.infer<typeof scoreJobRequestEnvelopeSchema>;
 export type GetNextActionsRequestEnvelope = z.infer<typeof getNextActionsRequestEnvelopeSchema>;
 export type UpdatePipelineRequestEnvelope = z.infer<typeof updatePipelineRequestEnvelopeSchema>;
+export type AutomationSearchRequestEnvelope = z.infer<
+  typeof automationSearchRequestEnvelopeSchema
+>;
 export type ResponseEnvelope = z.infer<typeof responseEnvelopeSchema>;

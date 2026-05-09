@@ -1,4 +1,5 @@
 import {
+  automationSearchRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
@@ -12,6 +13,7 @@ import { createId, type FsStore } from "@jobflow/runtime";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { z } from "zod";
+import { runAutomationSearch } from "./automation.js";
 import { runNext } from "./next.js";
 import { runNormalize } from "./normalize.js";
 import { runPipelineUpdate } from "./pipeline.js";
@@ -56,10 +58,30 @@ type ProtocolUpdatePipelinePayload = {
   pipeline: Record<string, unknown>;
 };
 
+type ProtocolAutomationSearchPayload = {
+  task_id: string;
+  task_status: string;
+  site: string;
+  collected_count: number;
+  ingest_ids: string[];
+  action_log: Record<string, unknown>[];
+  task: Record<string, unknown>;
+  result: Record<string, unknown>;
+};
+
 type ProtocolIngestOptions = {
   input?: string;
   stdin?: boolean;
 };
+
+type ProtocolResponseType =
+  | "protocol_error"
+  | "ingest_job_result"
+  | "normalize_job_result"
+  | "score_job_result"
+  | "get_next_actions_result"
+  | "update_pipeline_result"
+  | "automation_search_result";
 
 export async function runProtocolEnvelope(
   store: FsStore,
@@ -78,6 +100,8 @@ export async function runProtocolEnvelope(
       return runProtocolGetNextActions(store, rawEnvelope);
     case "update_pipeline":
       return runProtocolUpdatePipeline(store, rawEnvelope);
+    case "automation_search":
+      return runProtocolAutomationSearch(store, rawEnvelope);
     default:
       return createProtocolEnvelope("protocol_error", findRequestId(rawEnvelope), false, null, {
         code: "UNSUPPORTED_PROTOCOL_TYPE",
@@ -302,6 +326,62 @@ export async function runProtocolUpdatePipeline(
   );
 }
 
+export async function runProtocolAutomationSearch(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = automationSearchRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("automation_search_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid automation_search request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const payload = parsedEnvelope.data.payload;
+  const searched = await runAutomationSearch(store, {
+    site: payload.site,
+    keyword: payload.keyword,
+    city: payload.city,
+    limit: payload.limit,
+    session: payload.session,
+    fixtureHtml: payload.fixture_html,
+    fixtureUrl: payload.fixture_url
+  });
+
+  if (!searched.ok) {
+    return createProtocolEnvelope(
+      "automation_search_result",
+      parsedEnvelope.data.request_id,
+      false,
+      null,
+      searched.error
+    );
+  }
+
+  return createProtocolEnvelope<ProtocolAutomationSearchPayload>(
+    "automation_search_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      task_id: searched.data.task.task_id,
+      task_status: searched.data.result.status,
+      site: searched.data.task.site,
+      collected_count: searched.data.collected_count,
+      ingest_ids: searched.data.ingest_ids,
+      action_log: searched.data.result.action_log,
+      task: searched.data.task,
+      result: searched.data.result
+    },
+    null
+  );
+}
+
 export function registerProtocolCommand(program: Command, store: FsStore): void {
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
@@ -370,18 +450,33 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolUpdatePipeline(store, rawEnvelope));
     });
+
+  protocol
+    .command("automation-search")
+    .description("accept an automation_search protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolAutomationSearch(store, rawEnvelope));
+    });
 }
 
 async function readEnvelopeInput(options: ProtocolIngestOptions): Promise<unknown> {
   if (options.stdin) {
-    return JSON.parse(await readStdin());
+    return parseEnvelopeJson(await readStdin());
   }
 
   if (options.input) {
-    return JSON.parse(await readFile(options.input, "utf8"));
+    return parseEnvelopeJson(await readFile(options.input, "utf8"));
   }
 
   throw new Error("protocol command requires --input or --stdin");
+}
+
+export function parseEnvelopeJson(raw: string): unknown {
+  return JSON.parse(raw.replace(/^\uFEFF/, ""));
 }
 
 async function readStdin(): Promise<string> {
@@ -403,39 +498,21 @@ function findEnvelopeType(rawEnvelope: unknown): string | null {
 }
 
 function createProtocolEnvelope<TPayload extends Record<string, unknown>>(
-  type:
-    | "protocol_error"
-    | "ingest_job_result"
-    | "normalize_job_result"
-    | "score_job_result"
-    | "get_next_actions_result"
-    | "update_pipeline_result",
+  type: ProtocolResponseType,
   requestId: string,
   ok: true,
   payload: TPayload,
   error: null
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type:
-    | "protocol_error"
-    | "ingest_job_result"
-    | "normalize_job_result"
-    | "score_job_result"
-    | "get_next_actions_result"
-    | "update_pipeline_result",
+  type: ProtocolResponseType,
   requestId: string,
   ok: false,
   payload: null,
   error: JsonError
 ): ResponseEnvelope;
 function createProtocolEnvelope(
-  type:
-    | "protocol_error"
-    | "ingest_job_result"
-    | "normalize_job_result"
-    | "score_job_result"
-    | "get_next_actions_result"
-    | "update_pipeline_result",
+  type: ProtocolResponseType,
   requestId: string,
   ok: boolean,
   payload: Record<string, unknown> | null,
