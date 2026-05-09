@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   canTransitionPipelineStatus,
+  createAutomationSearchPersistence,
   createFsStore,
   getAutomationTask,
   listAutomationTasks,
@@ -160,5 +161,105 @@ describe("runtime package", () => {
 
     expect(getAutomationTask(tasks, "task_lookup")?.status).toBe("completed");
     expect(getAutomationTask(tasks, "missing_task")).toBeNull();
+  });
+
+  it("creates automation search persistence records from collected payloads", () => {
+    const persistence = createAutomationSearchPersistence({
+      task: {
+        task_id: "task_persist",
+        site: "fixture",
+        keyword: "TypeScript",
+        city: "Remote",
+        limit: 2,
+        created_at: "2026-05-09T00:00:00.000Z"
+      },
+      session: "fetch",
+      status: "partial",
+      startedAt: "2026-05-09T00:00:01.000Z",
+      finishedAt: "2026-05-09T00:00:02.000Z",
+      persistedAt: "2026-05-09T00:00:03.000Z",
+      collected: [
+        {
+          source_type: "extension",
+          source_site: "unknown",
+          captured_at: "2026-05-09T00:00:01.500Z",
+          job_url: "https://example.test/jobs/1",
+          title_hint: "Runtime Persistence Engineer",
+          company_hint: "Runtime Co"
+        }
+      ],
+      actionLog: [
+        {
+          at: "2026-05-09T00:00:02.000Z",
+          action: "parse_search_results",
+          status: "completed",
+          details: {
+            collected_count: 1
+          }
+        }
+      ],
+      createIngestId: () => "ingest_persist"
+    });
+
+    expect(persistence.ingests).toHaveLength(1);
+    expect(persistence.ingests[0]).toMatchObject({
+      ingest_id: "ingest_persist",
+      job_url: "https://example.test/jobs/1"
+    });
+    expect(persistence.taskRecord).toMatchObject({
+      task_id: "task_persist",
+      status: "partial",
+      collected_count: 1,
+      ingest_ids: ["ingest_persist"]
+    });
+    expect(persistence.taskRecord.action_log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "persist_ingests",
+          status: "completed",
+          details: {
+            ingest_ids: ["ingest_persist"]
+          }
+        })
+      ])
+    );
+  });
+
+  it("creates blocked automation task records without collected payloads", () => {
+    const persistence = createAutomationSearchPersistence({
+      task: {
+        task_id: "task_blocked",
+        site: "boss",
+        keyword: "TypeScript",
+        created_at: "2026-05-09T00:00:00.000Z"
+      },
+      session: "fetch",
+      status: "blocked",
+      finishedAt: "2026-05-09T00:00:02.000Z",
+      error: {
+        code: "ADAPTER_NOT_FOUND",
+        message: "automation adapter is not available for site: boss"
+      },
+      actionLog: [
+        {
+          at: "2026-05-09T00:00:02.000Z",
+          action: "resolve_adapter",
+          status: "blocked"
+        }
+      ],
+      createIngestId: () => "ingest_unused"
+    });
+
+    expect(persistence.ingests).toEqual([]);
+    expect(persistence.taskRecord).toMatchObject({
+      task_id: "task_blocked",
+      site: "boss",
+      status: "blocked",
+      collected_count: 0,
+      ingest_ids: [],
+      error: {
+        code: "ADAPTER_NOT_FOUND"
+      }
+    });
   });
 });

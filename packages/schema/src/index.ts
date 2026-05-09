@@ -30,6 +30,7 @@ export const automationTaskStatusSchema = z.enum([
   "queued",
   "running",
   "completed",
+  "partial",
   "failed",
   "blocked"
 ]);

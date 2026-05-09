@@ -96,4 +96,23 @@ describe("jobflow schema", () => {
     expect(result.status).toBe("completed");
     expect(result.ingest_ids).toEqual(["ingest_01"]);
   });
+
+  it("accepts a partial automation search task audit record", () => {
+    const result = automationTaskRecordSchema.parse({
+      task_id: "task_partial",
+      kind: "search",
+      site: "fixture",
+      keyword: "TypeScript",
+      session: "fetch",
+      status: "partial",
+      created_at: "2026-05-09T00:00:00.000Z",
+      started_at: "2026-05-09T00:00:01.000Z",
+      finished_at: "2026-05-09T00:00:02.000Z",
+      collected_count: 1,
+      ingest_ids: ["ingest_partial"],
+      action_log: []
+    });
+
+    expect(result.status).toBe("partial");
+  });
 });

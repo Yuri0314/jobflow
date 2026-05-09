@@ -11,15 +11,14 @@ import {
   type SearchTask
 } from "@jobflow/browser-automation";
 import {
+  createAutomationSearchPersistence,
   getAutomationTask,
   listAutomationTasks,
   type FsStore,
   createId
 } from "@jobflow/runtime";
 import {
-  automationTaskRecordSchema,
   automationTaskStatusSchema,
-  jobIngestRecordSchema,
   type AutomationTaskRecord,
   type JobIngestRecord
 } from "@jobflow/schema";
@@ -203,49 +202,27 @@ export async function runAutomationSearch(
   } finally {
     await closeableSession?.close();
   }
-  const collected = result.collected;
-
-  const records = collected.map((payload) =>
-    jobIngestRecordSchema.parse({
-      ...payload,
-      ingest_id: createId("ingest")
-    })
-  );
-
-  const persistAction = {
-    at: new Date().toISOString(),
-    action: "persist_ingests",
-    status: "completed" as const,
-    details: {
-      ingest_ids: records.map((record) => record.ingest_id)
-    }
-  };
+  const persistence = await persistAutomationTask(store, {
+    task,
+    session: sessionSelection,
+    status: result.status,
+    startedAt: result.started_at,
+    finishedAt: result.finished_at,
+    persistedAt: new Date().toISOString(),
+    collected: result.collected,
+    actionLog: result.action_log,
+    error: result.error
+  });
   const resultWithPersist: AutomationResult = {
     ...result,
-    action_log: [...result.action_log, persistAction]
+    action_log: persistence.taskRecord.action_log
   };
-
-  await persistAutomationTask(
-    store,
-    {
-      task,
-      session: sessionSelection,
-      status: result.status,
-      startedAt: result.started_at,
-      finishedAt: result.finished_at,
-      collectedCount: collected.length,
-      ingestIds: records.map((record) => record.ingest_id),
-      actionLog: resultWithPersist.action_log,
-      error: result.error
-    },
-    records
-  );
 
   return ok("automation.search", {
     task,
     result: resultWithPersist,
-    collected_count: collected.length,
-    ingest_ids: records.map((record) => record.ingest_id)
+    collected_count: persistence.ingests.length,
+    ingest_ids: persistence.ingests.map((record) => record.ingest_id)
   });
 }
 
@@ -363,40 +340,39 @@ type AutomationTaskInput = {
   status: AutomationResult["status"];
   startedAt?: string;
   finishedAt?: string;
-  collectedCount?: number;
-  ingestIds?: string[];
+  persistedAt?: string;
+  collected?: AutomationResult["collected"];
   actionLog?: AutomationTaskRecord["action_log"];
   error?: JsonError;
 };
 
+type PersistedAutomationTask = {
+  taskRecord: AutomationTaskRecord;
+  ingests: JobIngestRecord[];
+};
+
 async function persistAutomationTask(
   store: FsStore,
-  input: AutomationTaskInput,
-  records: JobIngestRecord[] = []
-): Promise<void> {
-  const state = await store.read();
-  state.ingests.push(...records);
-  state.automation_tasks.push(createAutomationTaskRecord(input));
-  await store.write(state);
-}
-
-function createAutomationTaskRecord(input: AutomationTaskInput): AutomationTaskRecord {
-  return automationTaskRecordSchema.parse({
-    task_id: input.task.task_id,
-    kind: "search",
-    site: input.task.site,
-    keyword: input.task.keyword,
-    city: input.task.city,
+  input: AutomationTaskInput
+): Promise<PersistedAutomationTask> {
+  const persistence = createAutomationSearchPersistence({
+    task: input.task,
     session: input.session,
     status: input.status,
-    created_at: input.task.created_at,
-    started_at: input.startedAt,
-    finished_at: input.finishedAt,
-    collected_count: input.collectedCount ?? 0,
-    ingest_ids: input.ingestIds ?? [],
-    action_log: input.actionLog ?? [],
-    error: input.error
+    startedAt: input.startedAt,
+    finishedAt: input.finishedAt,
+    persistedAt: input.persistedAt,
+    collected: input.collected,
+    actionLog: input.actionLog,
+    error: input.error,
+    createIngestId: () => createId("ingest")
   });
+  const state = await store.read();
+  state.ingests.push(...persistence.ingests);
+  state.automation_tasks.push(persistence.taskRecord);
+  await store.write(state);
+
+  return persistence;
 }
 
 function toJsonError(error: unknown): JsonError {

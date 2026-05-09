@@ -1,4 +1,9 @@
 export {
+  createAutomationSearchPersistence,
+  type AutomationSearchPersistenceInput,
+  type AutomationSearchPersistenceResult
+} from "./automation-results.js";
+export {
   getAutomationTask,
   listAutomationTasks,
   type AutomationTaskListOptions,
