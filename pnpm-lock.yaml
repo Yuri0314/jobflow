@@ -38,6 +38,9 @@ importers:
       '@jobflow/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@jobflow/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@jobflow/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -49,6 +52,15 @@ importers:
         version: 3.25.76
 
   packages/protocol:
+    dependencies:
+      '@jobflow/schema':
+        specifier: workspace:*
+        version: link:../schema
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
+  packages/runtime:
     dependencies:
       '@jobflow/schema':
         specifier: workspace:*

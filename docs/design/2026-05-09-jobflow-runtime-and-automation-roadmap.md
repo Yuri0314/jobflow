@@ -265,6 +265,7 @@ CLI 或 agent 发起搜索任务，浏览器自动打开搜索结果页，采集
 当前代码已经具备：
 
 - CLI runtime 最小闭环。
+- 初始 `packages/runtime` 共享包，承载状态存储和核心业务 primitives。
 - 共享 schema 和 protocol。
 - 浏览器插件采集壳。
 - 浏览器插件自动 smoke E2E。
@@ -285,7 +286,7 @@ CLI 创建搜索任务
 
 为了支撑长期路线，后续可以按顺序做这些调整：
 
-1. 新增 `packages/runtime`，逐步把 CLI 内部业务能力下沉进去。
+1. 继续扩展 `packages/runtime`，把更多 CLI 内部业务编排下沉进去。
 2. 新增浏览器自动化 controller 的设计文档。
 3. 扩展 protocol，增加 search task / automation task / task status envelope。
 4. 为 browser extension 增加 site adapter 结构。

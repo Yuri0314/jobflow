@@ -1,9 +1,7 @@
 import type { ScoreRecord } from "@jobflow/schema";
+import { createId, scoreJob, type FsStore } from "@jobflow/runtime";
 import { Command } from "commander";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import { createId } from "../runtime/ids.js";
-import { scoreJob } from "../runtime/score.js";
-import type { FsStore } from "../state/fs-store.js";
 
 type ScoreOptions = {
   jobId: string;

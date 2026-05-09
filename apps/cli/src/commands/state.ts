@@ -1,9 +1,8 @@
+import type { FsStore, JobflowState } from "@jobflow/runtime";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Command } from "commander";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import type { FsStore } from "../state/fs-store.js";
-import type { JobflowState } from "../state/state-schema.js";
 
 type StateCounts = {
   ingests: number;

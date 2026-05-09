@@ -7,7 +7,7 @@ import { registerProtocolCommand } from "./commands/protocol.js";
 import { registerResumeCommand } from "./commands/resume.js";
 import { registerScoreCommand } from "./commands/score.js";
 import { registerStateCommand } from "./commands/state.js";
-import { createFsStore } from "./state/fs-store.js";
+import { createFsStore } from "@jobflow/runtime";
 
 export function createCli(): Command {
   const program = new Command();

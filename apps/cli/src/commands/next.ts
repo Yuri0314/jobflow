@@ -1,7 +1,6 @@
+import { summarizeNext, type FsStore, type NextItem } from "@jobflow/runtime";
 import { Command } from "commander";
 import { ok, type JsonResponse, writeJson } from "../output.js";
-import { summarizeNext, type NextItem } from "../runtime/next.js";
-import type { FsStore } from "../state/fs-store.js";
 
 export async function runNext(store: FsStore): Promise<JsonResponse<{ items: NextItem[] }>> {
   const state = await store.read();

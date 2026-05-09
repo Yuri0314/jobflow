@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createFsStore } from "@jobflow/runtime";
 import { runStateExport, runStateInspect } from "../src/commands/state.js";
-import { createFsStore } from "../src/state/fs-store.js";
 
 let dir: string;
 

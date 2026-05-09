@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canTransitionPipelineStatus } from "../src/runtime/pipeline.js";
+import { canTransitionPipelineStatus } from "@jobflow/runtime";
 
 describe("pipeline transitions", () => {
   it("allows saved to reviewing", () => {

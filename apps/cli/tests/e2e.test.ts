@@ -2,12 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createFsStore } from "@jobflow/runtime";
 import { runIngest } from "../src/commands/ingest.js";
 import { runNext } from "../src/commands/next.js";
 import { runNormalize } from "../src/commands/normalize.js";
 import { runPipelineUpdate } from "../src/commands/pipeline.js";
 import { runScore } from "../src/commands/score.js";
-import { createFsStore } from "../src/state/fs-store.js";
 
 let dir: string;
 

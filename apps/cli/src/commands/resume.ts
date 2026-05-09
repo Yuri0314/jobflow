@@ -1,9 +1,8 @@
 import { type ResumeRecord, resumeRecordSchema, resumeSourceTypeSchema } from "@jobflow/schema";
+import { createId, type FsStore } from "@jobflow/runtime";
 import { Command } from "commander";
 import { z } from "zod";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import { createId } from "../runtime/ids.js";
-import type { FsStore } from "../state/fs-store.js";
 
 const resumeAddOptionsSchema = z.object({
   label: z.string().min(1),

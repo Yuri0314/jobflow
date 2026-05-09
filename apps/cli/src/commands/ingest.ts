@@ -1,9 +1,8 @@
 import { type JobIngestRecord, jobIngestRecordSchema, type SourceType } from "@jobflow/schema";
+import { createId, type FsStore } from "@jobflow/runtime";
 import { Command } from "commander";
 import { z } from "zod";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import { createId } from "../runtime/ids.js";
-import type { FsStore } from "../state/fs-store.js";
 
 const ingestOptionsSchema = z.object({
   source: z.enum(["extension", "link", "text", "file", "manual"]),

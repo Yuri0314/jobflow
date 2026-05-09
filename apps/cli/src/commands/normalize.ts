@@ -1,9 +1,7 @@
 import type { JobRecord, PipelineRecord } from "@jobflow/schema";
+import { createId, normalizeIngest, type FsStore } from "@jobflow/runtime";
 import { Command } from "commander";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import { createId } from "../runtime/ids.js";
-import { normalizeIngest } from "../runtime/normalize.js";
-import type { FsStore } from "../state/fs-store.js";
 
 type NormalizeOptions = {
   ingestId: string;

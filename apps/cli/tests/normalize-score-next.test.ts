@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeNext } from "../src/runtime/next.js";
-import { normalizeIngest } from "../src/runtime/normalize.js";
-import { scoreJob } from "../src/runtime/score.js";
+import { normalizeIngest, scoreJob, summarizeNext } from "@jobflow/runtime";
 
 describe("normalize, score, next runtime", () => {
   it("normalizes title and company hints", () => {

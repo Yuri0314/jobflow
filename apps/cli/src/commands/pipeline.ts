@@ -1,8 +1,7 @@
 import { type PipelineRecord, pipelineStatusSchema, prioritySchema } from "@jobflow/schema";
+import { canTransitionPipelineStatus, type FsStore } from "@jobflow/runtime";
 import { Command } from "commander";
 import { fail, ok, type JsonResponse, writeJson } from "../output.js";
-import { canTransitionPipelineStatus } from "../runtime/pipeline.js";
-import type { FsStore } from "../state/fs-store.js";
 
 type PipelineUpdateOptions = {
   jobId: string;

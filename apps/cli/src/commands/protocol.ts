@@ -8,6 +8,7 @@ import {
   type ResponseEnvelope
 } from "@jobflow/protocol";
 import { jobIngestRecordSchema } from "@jobflow/schema";
+import { createId, type FsStore } from "@jobflow/runtime";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { z } from "zod";
@@ -17,8 +18,6 @@ import { runPipelineUpdate } from "./pipeline.js";
 import { runScore } from "./score.js";
 import type { JsonError } from "../output.js";
 import { writeJson } from "../output.js";
-import { createId } from "../runtime/ids.js";
-import type { FsStore } from "../state/fs-store.js";
 
 type ProtocolIngestPayload = {
   ingest_id: string;
