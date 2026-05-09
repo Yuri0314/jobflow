@@ -562,6 +562,96 @@ describe("protocol automation-search", () => {
     expect(state.pipeline).toHaveLength(1);
   });
 
+  it("dispatches controlled BOSS fixture search processing through a protocol envelope", async () => {
+    const store = createFsStore(dir);
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_boss_automation_process",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "boss",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        process_results: true,
+        fixture_html: `<!doctype html>
+<main>
+  <div data-job-card data-url="https://www.zhipin.com/job_detail/protocol-boss.html">
+    <h2 data-job-title>BOSS Protocol Engineer</h2>
+    <p data-company>BOSS Protocol Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Collect BOSS fixture results through a protocol envelope.</p>
+  </div>
+</main>`
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_boss_automation_process",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      task_status: "completed",
+      site: "boss",
+      collected_count: 1,
+      processed: {
+        count: 1
+      }
+    });
+
+    const state = await store.read();
+    expect(state.ingests[0]).toMatchObject({
+      source_site: "boss",
+      job_url: "https://www.zhipin.com/job_detail/protocol-boss.html",
+      title_hint: "BOSS Protocol Engineer",
+      company_hint: "BOSS Protocol Co"
+    });
+    expect(state.jobs).toHaveLength(1);
+    expect(state.scores).toHaveLength(1);
+    expect(state.pipeline).toHaveLength(1);
+  });
+
+  it("returns SITE_FIXTURE_REQUIRED for BOSS protocol searches without fixture input", async () => {
+    const store = createFsStore(dir);
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_boss_without_fixture",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "boss",
+        keyword: "TypeScript",
+        session: "fetch"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_boss_without_fixture",
+      ok: false,
+      payload: null,
+      error: {
+        code: "SITE_FIXTURE_REQUIRED"
+      }
+    });
+
+    const state = await store.read();
+    expect(state.automation_tasks[0]).toMatchObject({
+      site: "boss",
+      status: "blocked",
+      error: {
+        code: "SITE_FIXTURE_REQUIRED"
+      }
+    });
+  });
+
   it("returns a protocol error envelope for invalid automation search input", async () => {
     const response = await runProtocolEnvelope(createFsStore(dir), {
       version: "1",

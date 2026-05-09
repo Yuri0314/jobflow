@@ -198,6 +198,31 @@ corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-aut
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 
+The same agent-facing protocol path can exercise the controlled BOSS fixture adapter.
+This is still fixture-only: omitting `fixture_html` or `fixture_url` for `site: "boss"`
+returns `SITE_FIXTURE_REQUIRED`.
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-boss-smoke"
+@'
+{
+  "version": "1",
+  "type": "automation_search",
+  "request_id": "req_boss_automation_smoke_01",
+  "sent_at": "2026-05-09T00:00:00.000Z",
+  "payload": {
+    "site": "boss",
+    "keyword": "TypeScript",
+    "limit": 1,
+    "session": "fetch",
+    "process_results": true,
+    "fixture_html": "<main><div data-job-card data-url=\"https://www.zhipin.com/job_detail/protocol-boss-smoke.html\"><h2 data-job-title>BOSS Protocol Engineer</h2><p data-company>BOSS Protocol Co</p><p data-summary>Collect controlled BOSS fixture results through protocol run.</p></div></main>"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-protocol-boss-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-protocol-boss-envelope.json" --json
+```
+
 ## Browser Extension Capture Smoke Test
 
 The browser extension is the first external capture entry. It does not call the local CLI

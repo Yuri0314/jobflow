@@ -215,6 +215,28 @@ describe("jobflow protocol", () => {
     expect(result.payload.process_results).toBe(true);
   });
 
+  it("accepts a controlled BOSS automation_search fixture envelope", () => {
+    const result = automationSearchRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "automation_search",
+      request_id: "req_boss_automation_01",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "boss",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        process_results: true,
+        fixture_html: `<main><div data-job-card data-url="https://www.zhipin.com/job_detail/protocol-boss.html"><h2 data-job-title>BOSS Protocol Engineer</h2><p data-company>BOSS Protocol Co</p></div></main>`
+      }
+    });
+
+    expect(result.type).toBe("automation_search");
+    expect(result.payload.site).toBe("boss");
+    expect(result.payload.fixture_html).toContain("BOSS Protocol Engineer");
+    expect(result.payload.process_results).toBe(true);
+  });
+
   it("accepts an automation_search_result response envelope", () => {
     const result = responseEnvelopeSchema.parse({
       version: "1",
