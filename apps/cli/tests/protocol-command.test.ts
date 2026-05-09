@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsStore } from "@jobflow/runtime";
 import {
   parseEnvelopeJson,
+  runProtocolGetAutomationTask,
   runProtocolGetNextActions,
   runProtocolEnvelope,
   runProtocolIngestJob,
@@ -538,6 +539,128 @@ describe("protocol automation-search", () => {
       payload: null
     });
     expect(response.error?.code).toBe("INVALID_PROTOCOL_ENVELOPE");
+  });
+});
+
+describe("protocol automation task queries", () => {
+  it("lists automation tasks through a protocol envelope", async () => {
+    const store = createFsStore(dir);
+    const search = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_automation_seed",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        fixture_html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/task-query">
+    <h2 data-job-title>Task Query Engineer</h2>
+    <p data-company>Query Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Seed a task for protocol query testing.</p>
+  </article>
+</main>`
+      }
+    });
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "get_automation_tasks",
+      request_id: "req_tasks",
+      sent_at: "2026-05-09T00:01:00.000Z",
+      payload: {
+        limit: 1,
+        status: "completed"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_automation_tasks_result",
+      request_id: "req_tasks",
+      ok: true,
+      error: null
+    });
+    expect(response.payload).toMatchObject({
+      count: 1,
+      total: 1
+    });
+    expect(response.payload?.items?.[0]).toMatchObject({
+      task_id: search.payload?.task_id,
+      status: "completed"
+    });
+  });
+
+  it("gets one automation task through a protocol envelope", async () => {
+    const store = createFsStore(dir);
+    const search = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_automation_seed",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        fixture_html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/task-get">
+    <h2 data-job-title>Task Get Engineer</h2>
+    <p data-company>Get Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Seed a task for direct lookup.</p>
+  </article>
+</main>`
+      }
+    });
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "get_automation_task",
+      request_id: "req_task",
+      sent_at: "2026-05-09T00:01:00.000Z",
+      payload: {
+        task_id: String(search.payload?.task_id)
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_automation_task_result",
+      request_id: "req_task",
+      ok: true,
+      error: null
+    });
+    expect(response.payload?.task).toMatchObject({
+      task_id: search.payload?.task_id,
+      status: "completed"
+    });
+  });
+
+  it("returns NOT_FOUND for an unknown automation task protocol lookup", async () => {
+    const response = await runProtocolGetAutomationTask(createFsStore(dir), {
+      version: "1",
+      type: "get_automation_task",
+      request_id: "req_task_missing",
+      sent_at: "2026-05-09T00:01:00.000Z",
+      payload: {
+        task_id: "task_missing"
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_automation_task_result",
+      request_id: "req_task_missing",
+      ok: false,
+      payload: null
+    });
+    expect(response.error?.code).toBe("NOT_FOUND");
   });
 });
 

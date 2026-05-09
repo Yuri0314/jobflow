@@ -1,4 +1,9 @@
-import { jobIngestPayloadSchema, pipelineStatusSchema, prioritySchema } from "@jobflow/schema";
+import {
+  automationTaskStatusSchema,
+  jobIngestPayloadSchema,
+  pipelineStatusSchema,
+  prioritySchema
+} from "@jobflow/schema";
 import { z } from "zod";
 
 export const protocolVersionSchema = z.literal("1");
@@ -9,7 +14,9 @@ export const commandRequestTypeSchema = z.enum([
   "score_job",
   "get_next_actions",
   "update_pipeline",
-  "automation_search"
+  "automation_search",
+  "get_automation_tasks",
+  "get_automation_task"
 ]);
 export const commandResponseTypeSchema = z.enum([
   "protocol_error",
@@ -18,7 +25,9 @@ export const commandResponseTypeSchema = z.enum([
   "score_job_result",
   "get_next_actions_result",
   "update_pipeline_result",
-  "automation_search_result"
+  "automation_search_result",
+  "get_automation_tasks_result",
+  "get_automation_task_result"
 ]);
 
 export const protocolErrorSchema = z.object({
@@ -95,6 +104,27 @@ export const automationSearchRequestEnvelopeSchema = z.object({
   })
 });
 
+export const getAutomationTasksRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("get_automation_tasks"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    limit: z.number().int().min(1).max(50).optional(),
+    status: automationTaskStatusSchema.optional()
+  })
+});
+
+export const getAutomationTaskRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("get_automation_task"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({
+    task_id: z.string().min(1)
+  })
+});
+
 export const responseEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: commandResponseTypeSchema,
@@ -111,5 +141,11 @@ export type GetNextActionsRequestEnvelope = z.infer<typeof getNextActionsRequest
 export type UpdatePipelineRequestEnvelope = z.infer<typeof updatePipelineRequestEnvelopeSchema>;
 export type AutomationSearchRequestEnvelope = z.infer<
   typeof automationSearchRequestEnvelopeSchema
+>;
+export type GetAutomationTasksRequestEnvelope = z.infer<
+  typeof getAutomationTasksRequestEnvelopeSchema
+>;
+export type GetAutomationTaskRequestEnvelope = z.infer<
+  typeof getAutomationTaskRequestEnvelopeSchema
 >;
 export type ResponseEnvelope = z.infer<typeof responseEnvelopeSchema>;

@@ -1,5 +1,7 @@
 import {
   automationSearchRequestEnvelopeSchema,
+  getAutomationTaskRequestEnvelopeSchema,
+  getAutomationTasksRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
@@ -13,7 +15,11 @@ import { createId, type FsStore } from "@jobflow/runtime";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { z } from "zod";
-import { runAutomationSearch } from "./automation.js";
+import {
+  runAutomationSearch,
+  runAutomationTaskGet,
+  runAutomationTasks
+} from "./automation.js";
 import { runNext } from "./next.js";
 import { runNormalize } from "./normalize.js";
 import { runPipelineUpdate } from "./pipeline.js";
@@ -69,6 +75,16 @@ type ProtocolAutomationSearchPayload = {
   result: Record<string, unknown>;
 };
 
+type ProtocolAutomationTasksPayload = {
+  items: Record<string, unknown>[];
+  count: number;
+  total: number;
+};
+
+type ProtocolAutomationTaskPayload = {
+  task: Record<string, unknown>;
+};
+
 type ProtocolIngestOptions = {
   input?: string;
   stdin?: boolean;
@@ -81,7 +97,9 @@ type ProtocolResponseType =
   | "score_job_result"
   | "get_next_actions_result"
   | "update_pipeline_result"
-  | "automation_search_result";
+  | "automation_search_result"
+  | "get_automation_tasks_result"
+  | "get_automation_task_result";
 
 export async function runProtocolEnvelope(
   store: FsStore,
@@ -102,6 +120,10 @@ export async function runProtocolEnvelope(
       return runProtocolUpdatePipeline(store, rawEnvelope);
     case "automation_search":
       return runProtocolAutomationSearch(store, rawEnvelope);
+    case "get_automation_tasks":
+      return runProtocolGetAutomationTasks(store, rawEnvelope);
+    case "get_automation_task":
+      return runProtocolGetAutomationTask(store, rawEnvelope);
     default:
       return createProtocolEnvelope("protocol_error", findRequestId(rawEnvelope), false, null, {
         code: "UNSUPPORTED_PROTOCOL_TYPE",
@@ -382,6 +404,94 @@ export async function runProtocolAutomationSearch(
   );
 }
 
+export async function runProtocolGetAutomationTasks(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = getAutomationTasksRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("get_automation_tasks_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid get_automation_tasks request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const payload = parsedEnvelope.data.payload;
+  const queried = await runAutomationTasks(store, {
+    limit: payload.limit,
+    status: payload.status
+  });
+
+  if (!queried.ok) {
+    return createProtocolEnvelope(
+      "get_automation_tasks_result",
+      parsedEnvelope.data.request_id,
+      false,
+      null,
+      queried.error
+    );
+  }
+
+  return createProtocolEnvelope<ProtocolAutomationTasksPayload>(
+    "get_automation_tasks_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      items: queried.data.items.map((item) => ({ ...item })),
+      count: queried.data.count,
+      total: queried.data.total
+    },
+    null
+  );
+}
+
+export async function runProtocolGetAutomationTask(
+  store: FsStore,
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = getAutomationTaskRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("get_automation_task_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid get_automation_task request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const queried = await runAutomationTaskGet(store, {
+    taskId: parsedEnvelope.data.payload.task_id
+  });
+
+  if (!queried.ok) {
+    return createProtocolEnvelope(
+      "get_automation_task_result",
+      parsedEnvelope.data.request_id,
+      false,
+      null,
+      queried.error
+    );
+  }
+
+  return createProtocolEnvelope<ProtocolAutomationTaskPayload>(
+    "get_automation_task_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      task: { ...queried.data.task }
+    },
+    null
+  );
+}
+
 export function registerProtocolCommand(program: Command, store: FsStore): void {
   const protocol = program.command("protocol").description("run protocol envelope adapters");
 
@@ -460,6 +570,28 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
     .action(async (options: ProtocolIngestOptions) => {
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolAutomationSearch(store, rawEnvelope));
+    });
+
+  protocol
+    .command("get-automation-tasks")
+    .description("accept a get_automation_tasks protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolGetAutomationTasks(store, rawEnvelope));
+    });
+
+  protocol
+    .command("get-automation-task")
+    .description("accept a get_automation_task protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolGetAutomationTask(store, rawEnvelope));
     });
 }
 

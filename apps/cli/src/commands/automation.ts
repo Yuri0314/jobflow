@@ -13,6 +13,7 @@ import {
 import { type FsStore, createId } from "@jobflow/runtime";
 import {
   automationTaskRecordSchema,
+  automationTaskStatusSchema,
   jobIngestRecordSchema,
   type AutomationTaskRecord,
   type JobIngestRecord
@@ -37,6 +38,22 @@ const searchOptionsSchema = z.object({
   fixtureUrl: z.string().url().optional()
 });
 
+const numericLimitSchema = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  return value;
+}, z.number().int().min(1).max(50).optional());
+
+const taskListOptionsSchema = z.object({
+  limit: numericLimitSchema,
+  status: automationTaskStatusSchema.optional()
+});
+
+const taskGetOptionsSchema = z.object({
+  taskId: z.string().min(1)
+});
+
 type AutomationSearchData = {
   task: SearchTask;
   result: AutomationResult;
@@ -47,6 +64,16 @@ type AutomationSearchData = {
 type AutomationSearchDependencies = {
   fetchSession?: AutomationPageSession;
   createChromiumSession?: () => Promise<ChromiumPageSession>;
+};
+
+type AutomationTasksData = {
+  items: AutomationTaskRecord[];
+  count: number;
+  total: number;
+};
+
+type AutomationTaskGetData = {
+  task: AutomationTaskRecord;
 };
 
 export async function runAutomationSearch(
@@ -217,6 +244,65 @@ export async function runAutomationSearch(
   });
 }
 
+export async function runAutomationTasks(
+  store: FsStore,
+  rawOptions: unknown
+): Promise<JsonResponse<AutomationTasksData>> {
+  const parsedOptions = taskListOptionsSchema.safeParse(rawOptions ?? {});
+  if (!parsedOptions.success) {
+    return fail("automation.tasks", {
+      code: "INVALID_INPUT",
+      message: "invalid automation task list options",
+      details: parsedOptions.error.flatten()
+    });
+  }
+
+  const state = await store.read();
+  const filtered = parsedOptions.data.status
+    ? state.automation_tasks.filter((task) => task.status === parsedOptions.data.status)
+    : state.automation_tasks;
+  const sorted = [...filtered].sort((left, right) =>
+    taskSortTimestamp(right).localeCompare(taskSortTimestamp(left))
+  );
+  const items = parsedOptions.data.limit
+    ? sorted.slice(0, parsedOptions.data.limit)
+    : sorted;
+
+  return ok("automation.tasks", {
+    items,
+    count: items.length,
+    total: filtered.length
+  });
+}
+
+export async function runAutomationTaskGet(
+  store: FsStore,
+  rawOptions: unknown
+): Promise<JsonResponse<AutomationTaskGetData>> {
+  const parsedOptions = taskGetOptionsSchema.safeParse(rawOptions);
+  if (!parsedOptions.success) {
+    return fail("automation.task", {
+      code: "INVALID_INPUT",
+      message: "invalid automation task lookup options",
+      details: parsedOptions.error.flatten()
+    });
+  }
+
+  const state = await store.read();
+  const task = state.automation_tasks.find(
+    (entry) => entry.task_id === parsedOptions.data.taskId
+  );
+
+  if (!task) {
+    return fail("automation.task", {
+      code: "NOT_FOUND",
+      message: `automation task not found: ${parsedOptions.data.taskId}`
+    });
+  }
+
+  return ok("automation.task", { task });
+}
+
 export function registerAutomationCommand(program: Command, store: FsStore): void {
   const automation = program
     .command("automation")
@@ -235,6 +321,28 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .option("--json", "emit JSON output", true)
     .action(async (options) => {
       writeJson(await runAutomationSearch(store, options));
+    });
+
+  automation
+    .command("tasks")
+    .description("list automation task audit records")
+    .option("--limit <limit>", "maximum number of tasks to return")
+    .option(
+      "--status <status>",
+      "filter by status: queued, running, completed, failed, blocked"
+    )
+    .option("--json", "emit JSON output", true)
+    .action(async (options) => {
+      writeJson(await runAutomationTasks(store, options));
+    });
+
+  automation
+    .command("task")
+    .description("get one automation task audit record")
+    .requiredOption("--task-id <taskId>", "automation task id")
+    .option("--json", "emit JSON output", true)
+    .action(async (options) => {
+      writeJson(await runAutomationTaskGet(store, options));
     });
 }
 
@@ -299,6 +407,10 @@ function createAutomationTaskRecord(input: AutomationTaskInput): AutomationTaskR
     action_log: input.actionLog ?? [],
     error: input.error
   });
+}
+
+function taskSortTimestamp(task: AutomationTaskRecord): string {
+  return task.finished_at ?? task.started_at ?? task.created_at;
 }
 
 function toJsonError(error: unknown): JsonError {

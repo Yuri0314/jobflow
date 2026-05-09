@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsStore } from "@jobflow/runtime";
-import { runAutomationSearch } from "../src/commands/automation.js";
+import {
+  runAutomationSearch,
+  runAutomationTaskGet,
+  runAutomationTasks
+} from "../src/commands/automation.js";
 
 let dir: string;
 
@@ -227,6 +231,98 @@ describe("automation search", () => {
         code: "INVALID_INPUT"
       }
     });
+  });
+});
+
+describe("automation task queries", () => {
+  it("lists recent automation tasks with status filtering and limit", async () => {
+    const store = createFsStore(dir);
+    const state = await store.read();
+
+    state.automation_tasks.push(
+      {
+        task_id: "task_completed_old",
+        kind: "search",
+        site: "fixture",
+        keyword: "TypeScript",
+        session: "fetch",
+        status: "completed",
+        created_at: "2026-05-09T00:00:00.000Z",
+        started_at: "2026-05-09T00:00:01.000Z",
+        finished_at: "2026-05-09T00:00:02.000Z",
+        collected_count: 1,
+        ingest_ids: ["ingest_old"],
+        action_log: []
+      },
+      {
+        task_id: "task_failed_new",
+        kind: "search",
+        site: "fixture",
+        keyword: "Rust",
+        session: "fetch",
+        status: "failed",
+        created_at: "2026-05-09T00:01:00.000Z",
+        started_at: "2026-05-09T00:01:01.000Z",
+        finished_at: "2026-05-09T00:01:02.000Z",
+        collected_count: 0,
+        ingest_ids: [],
+        action_log: [],
+        error: { code: "AUTOMATION_FAILED", message: "fixture failure" }
+      }
+    );
+
+    await store.write(state);
+
+    const recent = await runAutomationTasks(store, { limit: 1 });
+    expect(recent.ok).toBe(true);
+    if (!recent.ok) return;
+    expect(recent.data.count).toBe(1);
+    expect(recent.data.total).toBe(2);
+    expect(recent.data.items[0]?.task_id).toBe("task_failed_new");
+
+    const completed = await runAutomationTasks(store, { status: "completed" });
+    expect(completed.ok).toBe(true);
+    if (!completed.ok) return;
+    expect(completed.data.count).toBe(1);
+    expect(completed.data.items[0]?.task_id).toBe("task_completed_old");
+  });
+
+  it("gets one automation task by id", async () => {
+    const store = createFsStore(dir);
+    const state = await store.read();
+
+    state.automation_tasks.push({
+      task_id: "task_lookup",
+      kind: "search",
+      site: "fixture",
+      keyword: "Node.js",
+      session: "fetch",
+      status: "completed",
+      created_at: "2026-05-09T00:02:00.000Z",
+      started_at: "2026-05-09T00:02:01.000Z",
+      finished_at: "2026-05-09T00:02:02.000Z",
+      collected_count: 2,
+      ingest_ids: ["ingest_lookup_1", "ingest_lookup_2"],
+      action_log: []
+    });
+
+    await store.write(state);
+
+    const found = await runAutomationTaskGet(store, { taskId: "task_lookup" });
+    expect(found.ok).toBe(true);
+    if (!found.ok) return;
+    expect(found.data.task.status).toBe("completed");
+  });
+
+  it("returns NOT_FOUND for an unknown automation task", async () => {
+    const store = createFsStore(dir);
+
+    const found = await runAutomationTaskGet(store, { taskId: "missing_task" });
+
+    expect(found.ok).toBe(false);
+    if (found.ok) return;
+    expect(found.command).toBe("automation.task");
+    expect(found.error.code).toBe("NOT_FOUND");
   });
 });
 

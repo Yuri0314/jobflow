@@ -23,14 +23,22 @@ describe("jobflow cli", () => {
     expect(protocol?.commands.some((command) => command.name() === "automation-search")).toBe(
       true
     );
+    expect(protocol?.commands.some((command) => command.name() === "get-automation-tasks")).toBe(
+      true
+    );
+    expect(protocol?.commands.some((command) => command.name() === "get-automation-task")).toBe(
+      true
+    );
   });
 
-  it("prints automation help with the search command", () => {
+  it("prints automation help with the task commands", () => {
     const program = createCli();
     const automation = program.commands.find((command) => command.name() === "automation");
     const search = automation?.commands.find((command) => command.name() === "search");
 
     expect(automation?.commands.some((command) => command.name() === "search")).toBe(true);
+    expect(automation?.commands.some((command) => command.name() === "tasks")).toBe(true);
+    expect(automation?.commands.some((command) => command.name() === "task")).toBe(true);
     expect(search?.helpInformation()).toContain("--session <session>");
   });
 });

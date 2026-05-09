@@ -93,11 +93,18 @@ an automation task audit record into local state.
 ```powershell
 $env:JOBFLOW_HOME="D:\tmp\jobflow-automation-smoke"
 corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keyword "TypeScript" --limit 1 --json
+corepack pnpm --filter @jobflow/cli dev automation tasks --limit 1 --status completed --json
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 
 For local fixture-page smoke tests, pass `--fixture-url <url>` to make the automation
 controller open that page before parsing results.
+
+To inspect one recorded automation task, copy a `task_id` from the list output:
+
+```powershell
+corepack pnpm --filter @jobflow/cli dev automation task --task-id "<task_id>" --json
+```
 
 To verify the same controller through a real Chromium/Edge DevTools session, run:
 
@@ -157,6 +164,19 @@ $env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"
 }
 '@ | Set-Content -Path "D:\tmp\jobflow-automation-envelope.json"
 corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-automation-envelope.json" --json
+@'
+{
+  "version": "1",
+  "type": "get_automation_tasks",
+  "request_id": "req_automation_tasks_01",
+  "sent_at": "2026-05-09T00:01:00.000Z",
+  "payload": {
+    "limit": 1,
+    "status": "completed"
+  }
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-automation-tasks-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-automation-tasks-envelope.json" --json
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 

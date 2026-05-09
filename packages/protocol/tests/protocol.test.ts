@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   automationSearchRequestEnvelopeSchema,
+  getAutomationTaskRequestEnvelopeSchema,
+  getAutomationTasksRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
   normalizeJobRequestEnvelopeSchema,
@@ -236,5 +238,66 @@ describe("jobflow protocol", () => {
 
     expect(result.type).toBe("automation_search_result");
     expect(result.payload?.task_status).toBe("completed");
+  });
+
+  it("accepts a get_automation_tasks request envelope", () => {
+    const result = getAutomationTasksRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "get_automation_tasks",
+      request_id: "req_tasks_01",
+      sent_at: "2026-05-09T00:05:00.000Z",
+      payload: {
+        limit: 5,
+        status: "completed"
+      }
+    });
+
+    expect(result.type).toBe("get_automation_tasks");
+    expect(result.payload.status).toBe("completed");
+  });
+
+  it("accepts a get_automation_task request envelope", () => {
+    const result = getAutomationTaskRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "get_automation_task",
+      request_id: "req_task_01",
+      sent_at: "2026-05-09T00:06:00.000Z",
+      payload: {
+        task_id: "task_01"
+      }
+    });
+
+    expect(result.type).toBe("get_automation_task");
+    expect(result.payload.task_id).toBe("task_01");
+  });
+
+  it("accepts automation task query response envelopes", () => {
+    const listResult = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "get_automation_tasks_result",
+      request_id: "req_tasks_01",
+      ok: true,
+      payload: {
+        items: [],
+        count: 0
+      },
+      error: null
+    });
+    const getResult = responseEnvelopeSchema.parse({
+      version: "1",
+      type: "get_automation_task_result",
+      request_id: "req_task_01",
+      ok: true,
+      payload: {
+        task: {
+          task_id: "task_01",
+          status: "completed"
+        }
+      },
+      error: null
+    });
+
+    expect(listResult.type).toBe("get_automation_tasks_result");
+    expect(getResult.type).toBe("get_automation_task_result");
   });
 });
