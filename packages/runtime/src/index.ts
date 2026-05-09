@@ -1,3 +1,9 @@
+export {
+  getAutomationTask,
+  listAutomationTasks,
+  type AutomationTaskListOptions,
+  type AutomationTaskListResult
+} from "./automation-tasks.js";
 export { createFsStore, type FsStore } from "./fs-store.js";
 export { createId } from "./ids.js";
 export { normalizeIngest } from "./normalize.js";

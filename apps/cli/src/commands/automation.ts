@@ -10,7 +10,12 @@ import {
   type AutomationResult,
   type SearchTask
 } from "@jobflow/browser-automation";
-import { type FsStore, createId } from "@jobflow/runtime";
+import {
+  getAutomationTask,
+  listAutomationTasks,
+  type FsStore,
+  createId
+} from "@jobflow/runtime";
 import {
   automationTaskRecordSchema,
   automationTaskStatusSchema,
@@ -257,22 +262,9 @@ export async function runAutomationTasks(
     });
   }
 
-  const state = await store.read();
-  const filtered = parsedOptions.data.status
-    ? state.automation_tasks.filter((task) => task.status === parsedOptions.data.status)
-    : state.automation_tasks;
-  const sorted = [...filtered].sort((left, right) =>
-    taskSortTimestamp(right).localeCompare(taskSortTimestamp(left))
-  );
-  const items = parsedOptions.data.limit
-    ? sorted.slice(0, parsedOptions.data.limit)
-    : sorted;
+  const { automation_tasks: tasks } = await store.read();
 
-  return ok("automation.tasks", {
-    items,
-    count: items.length,
-    total: filtered.length
-  });
+  return ok("automation.tasks", listAutomationTasks(tasks, parsedOptions.data));
 }
 
 export async function runAutomationTaskGet(
@@ -288,10 +280,8 @@ export async function runAutomationTaskGet(
     });
   }
 
-  const state = await store.read();
-  const task = state.automation_tasks.find(
-    (entry) => entry.task_id === parsedOptions.data.taskId
-  );
+  const { automation_tasks: tasks } = await store.read();
+  const task = getAutomationTask(tasks, parsedOptions.data.taskId);
 
   if (!task) {
     return fail("automation.task", {
@@ -407,10 +397,6 @@ function createAutomationTaskRecord(input: AutomationTaskInput): AutomationTaskR
     action_log: input.actionLog ?? [],
     error: input.error
   });
-}
-
-function taskSortTimestamp(task: AutomationTaskRecord): string {
-  return task.finished_at ?? task.started_at ?? task.created_at;
 }
 
 function toJsonError(error: unknown): JsonError {
