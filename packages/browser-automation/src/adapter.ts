@@ -1,8 +1,14 @@
 import type { JobIngestPayload } from "@jobflow/schema";
+import type { AutomationError } from "./errors.js";
 import type { AutomationSite, SearchTask } from "./task.js";
+
+export type BlockedPageDetection = AutomationError & {
+  action?: string;
+};
 
 export type SiteAdapter = {
   site: AutomationSite;
+  detectBlockedPage?: (html: string) => BlockedPageDetection | null;
   parseSearchResults(html: string, capturedAt: string, task?: SearchTask): JobIngestPayload[];
 };
 

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildChromiumLaunchArgs,
   automationResultSchema,
+  bossAdapter,
   createAdapterRegistry,
   executeSearchTask,
   findChromiumExecutable,
   fetchPageSession,
   fixtureAdapter,
+  parseBossSearchResults,
   parseFixtureSearchResults,
   searchTaskSchema
 } from "../src/index.js";
@@ -92,6 +94,63 @@ describe("browser automation scaffold", () => {
     expect(payloads[0]?.raw_text).toContain("Remote");
   });
 
+  it("parses controlled BOSS fixture search result HTML into ingest payloads", () => {
+    const payloads = parseBossSearchResults(
+      `<!doctype html>
+<main>
+  <div class="job-card-wrapper" data-job-card>
+    <a class="job-name" href="/job_detail/abc123.html">TypeScript Backend Engineer</a>
+    <span class="boss-name">BOSS Fixture Co</span>
+    <span class="job-area">上海</span>
+    <div class="job-info">Node.js TypeScript 平台服务</div>
+  </div>
+</main>`,
+      "2026-05-09T00:00:00.000Z"
+    );
+
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toMatchObject({
+      source_type: "extension",
+      source_site: "boss",
+      job_url: "https://www.zhipin.com/job_detail/abc123.html",
+      title_hint: "TypeScript Backend Engineer",
+      company_hint: "BOSS Fixture Co"
+    });
+    expect(payloads[0]?.raw_text).toContain("上海");
+  });
+
+  it("parses BOSS fixture data attributes passed through PowerShell CLI arguments", () => {
+    const payloads = parseBossSearchResults(
+      `<!doctype html>
+<main>
+  <div data-job-card data-url=https://www.zhipin.com/job_detail/powershell.html>
+    <h2 data-job-title>BOSS PowerShell Fixture Engineer</h2>
+    <p data-company>BOSS Shell Co</p>
+  </div>
+</main>`,
+      "2026-05-09T00:00:00.000Z"
+    );
+
+    expect(payloads[0]).toMatchObject({
+      source_site: "boss",
+      job_url: "https://www.zhipin.com/job_detail/powershell.html",
+      title_hint: "BOSS PowerShell Fixture Engineer",
+      company_hint: "BOSS Shell Co"
+    });
+  });
+
+  it("detects controlled BOSS blocked pages", () => {
+    expect(bossAdapter.detectBlockedPage?.("<main>请先登录后继续使用</main>")).toMatchObject({
+      code: "LOGIN_REQUIRED"
+    });
+    expect(bossAdapter.detectBlockedPage?.("<main>请输入验证码进行验证</main>")).toMatchObject({
+      code: "CAPTCHA_REQUIRED"
+    });
+    expect(bossAdapter.detectBlockedPage?.("<main>访问异常，请稍后再试</main>")).toMatchObject({
+      code: "PLATFORM_BLOCKED"
+    });
+  });
+
   it("executes a fixture search task through an injected page session", async () => {
     const openedUrls: string[] = [];
     const result = await executeSearchTask(
@@ -165,6 +224,36 @@ describe("browser automation scaffold", () => {
         code: "ADAPTER_NOT_FOUND"
       }
     });
+  });
+
+  it("returns a blocked result when the adapter detects a blocked page", async () => {
+    const result = await executeSearchTask(
+      {
+        task_id: "task_boss_blocked",
+        site: "boss",
+        keyword: "TypeScript",
+        created_at: "2026-05-09T00:00:00.000Z"
+      },
+      {
+        adapterRegistry: createAdapterRegistry([bossAdapter]),
+        html: "<main>请先登录后继续使用</main>"
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      error: {
+        code: "LOGIN_REQUIRED"
+      }
+    });
+    expect(result.action_log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "detect_blocked_page",
+          status: "blocked"
+        })
+      ])
+    );
   });
 
   it("fetches HTML from a local fixture page session", async () => {

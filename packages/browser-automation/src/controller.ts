@@ -85,6 +85,33 @@ export async function executeSearchTask(
     });
   }
 
+  const blockedPage = adapter.detectBlockedPage?.(html);
+  if (blockedPage) {
+    return automationResultSchema.parse({
+      task_id: task.task_id,
+      status: "blocked",
+      site: task.site,
+      collected: [],
+      action_log: [
+        ...actionLog,
+        {
+          at: new Date().toISOString(),
+          action: blockedPage.action ?? "detect_blocked_page",
+          status: "blocked",
+          message: blockedPage.message,
+          details: blockedPage.details
+        }
+      ],
+      error: {
+        code: blockedPage.code,
+        message: blockedPage.message,
+        details: blockedPage.details
+      },
+      started_at: startedAt,
+      finished_at: new Date().toISOString()
+    });
+  }
+
   const collected = adapter.parseSearchResults(html, startedAt, task).slice(0, task.limit ?? 50);
   actionLog.push({
     at: new Date().toISOString(),

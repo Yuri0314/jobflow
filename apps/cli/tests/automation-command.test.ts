@@ -125,7 +125,7 @@ describe("automation search", () => {
 
     expect(response.ok).toBe(false);
     if (response.ok) return;
-    expect(response.error.code).toBe("ADAPTER_NOT_FOUND");
+    expect(response.error.code).toBe("SITE_FIXTURE_REQUIRED");
     expect(response.command).toBe("automation.search");
 
     const state = await store.read();
@@ -138,8 +138,43 @@ describe("automation search", () => {
       collected_count: 0,
       ingest_ids: [],
       error: {
-        code: "ADAPTER_NOT_FOUND"
+        code: "SITE_FIXTURE_REQUIRED"
       }
+    });
+  });
+
+  it("collects controlled BOSS fixture search results without touching the real site", async () => {
+    const store = createFsStore(dir);
+    const response = await runAutomationSearch(store, {
+      site: "boss",
+      keyword: "TypeScript",
+      limit: 1,
+      fixtureHtml: `<!doctype html>
+<main>
+  <div class="job-card-wrapper" data-job-card>
+    <a class="job-name" href="/job_detail/cli-boss.html">BOSS Fixture Engineer</a>
+    <span class="boss-name">BOSS CLI Co</span>
+    <span class="job-area">北京</span>
+    <div class="job-info">Build local-first job automation.</div>
+  </div>
+</main>`
+    });
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.data.result.status).toBe("completed");
+    expect(response.data.collected_count).toBe(1);
+
+    const state = await store.read();
+    expect(state.ingests[0]).toMatchObject({
+      source_site: "boss",
+      job_url: "https://www.zhipin.com/job_detail/cli-boss.html",
+      title_hint: "BOSS Fixture Engineer",
+      company_hint: "BOSS CLI Co"
+    });
+    expect(state.automation_tasks[0]).toMatchObject({
+      site: "boss",
+      status: "completed"
     });
   });
 

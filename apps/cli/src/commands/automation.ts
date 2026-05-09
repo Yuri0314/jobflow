@@ -1,6 +1,7 @@
 import {
   createAdapterRegistry,
   createChromiumPageSession,
+  bossAdapter,
   executeSearchTask,
   fetchPageSession,
   fixtureAdapter,
@@ -117,8 +118,37 @@ export async function runAutomationSearch(
     created_at: startedAt
   });
   const sessionSelection = parsedOptions.data.session;
+  const hasControlledFixture = Boolean(parsedOptions.data.fixtureHtml || parsedOptions.data.fixtureUrl);
 
-  if (task.site !== "fixture") {
+  if (task.site === "boss" && !hasControlledFixture) {
+    const error = {
+      code: "SITE_FIXTURE_REQUIRED",
+      message: "BOSS automation is only enabled for controlled fixture HTML or fixture URL",
+      details: {
+        site: task.site
+      }
+    };
+    await persistAutomationTask(store, {
+      task,
+      session: sessionSelection,
+      status: "blocked",
+      finishedAt: new Date().toISOString(),
+      error,
+      actionLog: [
+        {
+          at: new Date().toISOString(),
+          action: "validate_site_fixture",
+          status: "blocked",
+          details: {
+            site: task.site
+          }
+        }
+      ]
+    });
+    return fail("automation.search", error);
+  }
+
+  if (!isSupportedAutomationSite(task.site)) {
     const error = {
       code: "ADAPTER_NOT_FOUND",
       message: `automation adapter is not available for site: ${task.site}`,
@@ -181,7 +211,7 @@ export async function runAutomationSearch(
         : undefined;
 
     result = await executeSearchTask(task, {
-      adapterRegistry: createAdapterRegistry([fixtureAdapter]),
+      adapterRegistry: createAdapterRegistry([fixtureAdapter, bossAdapter]),
       pageSession:
         sessionSelection === "chromium"
           ? closeableSession
@@ -376,6 +406,10 @@ async function processCollectedIngests(
     score_ids: scoreIds,
     next_actions: nextActions
   });
+}
+
+function isSupportedAutomationSite(site: SearchTask["site"]): boolean {
+  return site === "fixture" || site === "boss";
 }
 
 async function createDefaultChromiumSession(): Promise<ChromiumPageSession> {

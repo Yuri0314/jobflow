@@ -1,4 +1,5 @@
 export { createAdapterRegistry, type AdapterRegistry, type SiteAdapter } from "./adapter.js";
+export { bossAdapter, detectBossBlockedPage, parseBossSearchResults } from "./adapters/boss.js";
 export { fixtureAdapter, parseFixtureSearchResults } from "./adapters/fixture.js";
 export {
   buildChromiumLaunchArgs,
