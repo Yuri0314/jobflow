@@ -106,6 +106,13 @@ To inspect one recorded automation task, copy a `task_id` from the list output:
 corepack pnpm --filter @jobflow/cli dev automation task --task-id "<task_id>" --json
 ```
 
+To continue from collection into normalized jobs, scores, and next actions, opt in
+explicitly:
+
+```powershell
+corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keyword "TypeScript" --limit 1 --process-results --json
+```
+
 To verify the same controller through a real Chromium/Edge DevTools session, run:
 
 ```powershell
@@ -159,6 +166,7 @@ $env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"
     "keyword": "TypeScript",
     "limit": 1,
     "session": "fetch",
+    "process_results": true,
     "fixture_html": "<main><article data-job-card data-url=\"https://example.test/jobs/protocol-smoke\"><h2 data-job-title>Protocol Automation Engineer</h2><p data-company>Example Automation Co</p><p data-summary>Collect fixture results through protocol run.</p></article></main>"
   }
 }

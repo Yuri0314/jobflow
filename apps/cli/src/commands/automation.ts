@@ -14,6 +14,7 @@ import {
   createAutomationSearchPersistence,
   getAutomationTask,
   listAutomationTasks,
+  type NextItem,
   type FsStore,
   createId
 } from "@jobflow/runtime";
@@ -24,6 +25,9 @@ import {
 } from "@jobflow/schema";
 import { Command } from "commander";
 import { z } from "zod";
+import { runNext } from "./next.js";
+import { runNormalize } from "./normalize.js";
+import { runScore } from "./score.js";
 import { fail, ok, type JsonError, type JsonResponse, writeJson } from "../output.js";
 
 const searchOptionsSchema = z.object({
@@ -38,6 +42,7 @@ const searchOptionsSchema = z.object({
       if (typeof value === "string") return Number(value);
       return value;
     }, z.number().int().min(1).max(50).optional()),
+  processResults: z.boolean().default(false),
   fixtureHtml: z.string().min(1).optional(),
   fixtureUrl: z.string().url().optional()
 });
@@ -63,6 +68,7 @@ type AutomationSearchData = {
   result: AutomationResult;
   collected_count: number;
   ingest_ids: string[];
+  processed?: AutomationProcessedData;
 };
 
 type AutomationSearchDependencies = {
@@ -78,6 +84,13 @@ type AutomationTasksData = {
 
 type AutomationTaskGetData = {
   task: AutomationTaskRecord;
+};
+
+type AutomationProcessedData = {
+  count: number;
+  job_ids: string[];
+  score_ids: string[];
+  next_actions: NextItem[];
 };
 
 export async function runAutomationSearch(
@@ -217,12 +230,29 @@ export async function runAutomationSearch(
     ...result,
     action_log: persistence.taskRecord.action_log
   };
+  const processed = parsedOptions.data.processResults
+    ? await processCollectedIngests(
+        store,
+        persistence.ingests.map((record) => record.ingest_id)
+      )
+    : undefined;
+
+  if (processed && !processed.ok) {
+    return fail("automation.search", {
+      code: "AUTOMATION_PROCESSING_FAILED",
+      message: "automation search collected results but processing failed",
+      details: {
+        cause: processed.error
+      }
+    });
+  }
 
   return ok("automation.search", {
     task,
     result: resultWithPersist,
     collected_count: persistence.ingests.length,
-    ingest_ids: persistence.ingests.map((record) => record.ingest_id)
+    ingest_ids: persistence.ingests.map((record) => record.ingest_id),
+    processed: processed?.data
   });
 }
 
@@ -283,6 +313,7 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .option("--city <city>", "search city")
     .option("--limit <limit>", "maximum number of jobs to collect")
     .option("--session <session>", "page session: fetch, chromium", "fetch")
+    .option("--process-results", "normalize, score, and summarize collected results")
     .option("--fixture-html <fixtureHtml>", "inline fixture HTML for local smoke testing")
     .option("--fixture-url <fixtureUrl>", "local fixture page URL for automation smoke testing")
     .option("--json", "emit JSON output", true)
@@ -311,6 +342,40 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .action(async (options) => {
       writeJson(await runAutomationTaskGet(store, options));
     });
+}
+
+async function processCollectedIngests(
+  store: FsStore,
+  ingestIds: string[]
+): Promise<JsonResponse<AutomationProcessedData>> {
+  const jobIds: string[] = [];
+  const scoreIds: string[] = [];
+
+  for (const ingestId of ingestIds) {
+    const normalized = await runNormalize(store, { ingestId });
+    if (!normalized.ok) {
+      return fail("automation.process", normalized.error);
+    }
+
+    const jobId = normalized.data.job.job_id;
+    jobIds.push(jobId);
+
+    const scored = await runScore(store, { jobId });
+    if (!scored.ok) {
+      return fail("automation.process", scored.error);
+    }
+    scoreIds.push(scored.data.score.score_id);
+  }
+
+  const next = await runNext(store);
+  const nextActions = next.data.items.filter((item) => jobIds.includes(item.job_id));
+
+  return ok("automation.process", {
+    count: jobIds.length,
+    job_ids: jobIds,
+    score_ids: scoreIds,
+    next_actions: nextActions
+  });
 }
 
 async function createDefaultChromiumSession(): Promise<ChromiumPageSession> {

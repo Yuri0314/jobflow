@@ -81,6 +81,41 @@ describe("automation search", () => {
     ]);
   });
 
+  it("optionally processes collected results into jobs, scores, and next actions", async () => {
+    const store = createFsStore(dir);
+    const response = await runAutomationSearch(store, {
+      site: "fixture",
+      keyword: "TypeScript",
+      limit: 1,
+      processResults: true,
+      fixtureHtml: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/process">
+    <h2 data-job-title>Processed TypeScript Engineer</h2>
+    <p data-company>Process Corp</p>
+    <p data-location>Remote</p>
+    <p data-summary>Build TypeScript services and local-first workflows.</p>
+  </article>
+</main>`
+    });
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.data.processed).toMatchObject({
+      count: 1
+    });
+    expect(response.data.processed?.job_ids).toHaveLength(1);
+    expect(response.data.processed?.score_ids).toHaveLength(1);
+    expect(response.data.processed?.next_actions).toHaveLength(1);
+
+    const state = await store.read();
+    expect(state.ingests).toHaveLength(1);
+    expect(state.jobs).toHaveLength(1);
+    expect(state.scores).toHaveLength(1);
+    expect(state.pipeline).toHaveLength(1);
+    expect(state.ingests[0]?.job_id).toBe(state.jobs[0]?.job_id);
+  });
+
   it("returns a stable error before real site adapters are enabled", async () => {
     const store = createFsStore(dir);
     const response = await runAutomationSearch(store, {

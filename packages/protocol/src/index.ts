@@ -99,6 +99,7 @@ export const automationSearchRequestEnvelopeSchema = z.object({
     city: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(50).optional(),
     session: z.enum(["fetch", "chromium"]).default("fetch"),
+    process_results: z.boolean().optional(),
     fixture_html: z.string().min(1).optional(),
     fixture_url: z.string().url().optional()
   })

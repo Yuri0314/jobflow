@@ -518,6 +518,50 @@ describe("protocol automation-search", () => {
     });
   });
 
+  it("dispatches automation search processing through a protocol envelope", async () => {
+    const store = createFsStore(dir);
+
+    const response = await runProtocolEnvelope(store, {
+      version: "1",
+      type: "automation_search",
+      request_id: "req_automation_process",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {
+        site: "fixture",
+        keyword: "TypeScript",
+        limit: 1,
+        session: "fetch",
+        process_results: true,
+        fixture_html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/protocol-process">
+    <h2 data-job-title>Protocol Process Engineer</h2>
+    <p data-company>Protocol Process Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Process automation search results through protocol.</p>
+  </article>
+</main>`
+      }
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "automation_search_result",
+      request_id: "req_automation_process",
+      ok: true,
+      error: null
+    });
+    expect(response.payload?.processed).toMatchObject({
+      count: 1
+    });
+
+    const state = await store.read();
+    expect(state.ingests).toHaveLength(1);
+    expect(state.jobs).toHaveLength(1);
+    expect(state.scores).toHaveLength(1);
+    expect(state.pipeline).toHaveLength(1);
+  });
+
   it("returns a protocol error envelope for invalid automation search input", async () => {
     const response = await runProtocolEnvelope(createFsStore(dir), {
       version: "1",

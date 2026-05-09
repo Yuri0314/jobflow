@@ -70,6 +70,7 @@ type ProtocolAutomationSearchPayload = {
   site: string;
   collected_count: number;
   ingest_ids: string[];
+  processed?: Record<string, unknown>;
   action_log: Record<string, unknown>[];
   task: Record<string, unknown>;
   result: Record<string, unknown>;
@@ -372,6 +373,7 @@ export async function runProtocolAutomationSearch(
     city: payload.city,
     limit: payload.limit,
     session: payload.session,
+    processResults: payload.process_results,
     fixtureHtml: payload.fixture_html,
     fixtureUrl: payload.fixture_url
   });
@@ -396,6 +398,7 @@ export async function runProtocolAutomationSearch(
       site: searched.data.task.site,
       collected_count: searched.data.collected_count,
       ingest_ids: searched.data.ingest_ids,
+      processed: searched.data.processed ? { ...searched.data.processed } : undefined,
       action_log: searched.data.result.action_log,
       task: searched.data.task,
       result: searched.data.result

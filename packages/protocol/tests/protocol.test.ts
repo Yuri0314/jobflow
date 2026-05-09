@@ -202,6 +202,7 @@ describe("jobflow protocol", () => {
         city: "Remote",
         limit: 1,
         session: "fetch",
+        process_results: true,
         fixture_html: `<article data-job-card data-url="https://example.test/jobs/1">
   <h2 data-job-title>TypeScript Engineer</h2>
   <p data-company>Example Co</p>
@@ -211,6 +212,7 @@ describe("jobflow protocol", () => {
 
     expect(result.type).toBe("automation_search");
     expect(result.payload.session).toBe("fetch");
+    expect(result.payload.process_results).toBe(true);
   });
 
   it("accepts an automation_search_result response envelope", () => {

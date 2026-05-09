@@ -40,5 +40,6 @@ describe("jobflow cli", () => {
     expect(automation?.commands.some((command) => command.name() === "tasks")).toBe(true);
     expect(automation?.commands.some((command) => command.name() === "task")).toBe(true);
     expect(search?.helpInformation()).toContain("--session <session>");
+    expect(search?.helpInformation()).toContain("--process-results");
   });
 });
