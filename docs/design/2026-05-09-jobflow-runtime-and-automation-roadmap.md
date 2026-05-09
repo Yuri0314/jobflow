@@ -287,7 +287,7 @@ CLI 创建搜索任务
 为了支撑长期路线，后续可以按顺序做这些调整：
 
 1. 继续扩展 `packages/runtime`，把更多 CLI 内部业务编排下沉进去。
-2. 新增浏览器自动化 controller 的设计文档。
+2. 根据 `2026-05-09-jobflow-browser-automation-controller-design.md` 实现 controller scaffold。
 3. 扩展 protocol，增加 search task / automation task / task status envelope。
 4. 为 browser extension 增加 site adapter 结构。
 5. 为搜索结果采集增加 fixture 测试。
