@@ -2,6 +2,7 @@ import { ingestJobRequestEnvelopeSchema } from "@jobflow/protocol";
 import { describe, expect, test } from "vitest";
 
 import { createIngestJobEnvelope, detectSourceSite } from "../src/envelope";
+import { resolveExtensionSiteAdapter } from "../src/site-adapters";
 
 describe("browser extension ingest envelope", () => {
   test("creates a protocol-valid ingest envelope from selected page text", () => {
@@ -33,6 +34,7 @@ describe("browser extension ingest envelope", () => {
         title_hint: "TypeScript Engineer - Example Tech",
         raw_text: "Build Node.js and TypeScript services.",
         source_metadata: {
+          site_adapter: "linkedin",
           tab_title: "TypeScript Engineer - Example Tech",
           raw_text_source: "selection",
           selection_text_present: true
@@ -60,6 +62,7 @@ describe("browser extension ingest envelope", () => {
     expect(envelope.payload.source_site).toBe("unknown");
     expect(envelope.payload.raw_text).toHaveLength(12000);
     expect(envelope.payload.source_metadata).toMatchObject({
+      site_adapter: "generic",
       raw_text_source: "body",
       selection_text_present: false
     });
@@ -92,5 +95,16 @@ describe("browser extension ingest envelope", () => {
     ["https://jobs.example.com/123", "unknown"]
   ])("detects source site for %s", (url, expected) => {
     expect(detectSourceSite(url)).toBe(expected);
+  });
+
+  test("resolves the extension site adapter for known and unknown pages", () => {
+    expect(resolveExtensionSiteAdapter("https://www.zhipin.com/job_detail/abc")).toMatchObject({
+      id: "boss",
+      site: "boss"
+    });
+    expect(resolveExtensionSiteAdapter("https://jobs.example.com/123")).toMatchObject({
+      id: "generic",
+      site: "unknown"
+    });
   });
 });

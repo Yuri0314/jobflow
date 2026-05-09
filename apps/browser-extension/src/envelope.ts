@@ -1,6 +1,7 @@
 import type { IngestJobRequestEnvelope } from "@jobflow/protocol";
+import { resolveExtensionSiteAdapter } from "./site-adapters";
 
-export type SourceSite = "boss" | "liepin" | "lagou" | "linkedin" | "unknown";
+export { detectSourceSite, type SourceSite } from "./site-adapters";
 
 export type PageCapture = {
   pageUrl: string;
@@ -16,30 +17,6 @@ export type EnvelopeOptions = {
 
 const MAX_RAW_TEXT_LENGTH = 12000;
 
-export function detectSourceSite(url: string): SourceSite {
-  let hostname = "";
-  try {
-    hostname = new URL(url).hostname.toLowerCase();
-  } catch {
-    return "unknown";
-  }
-
-  if (hostname.endsWith("zhipin.com") || hostname.endsWith("kanzhun.com")) {
-    return "boss";
-  }
-  if (hostname.endsWith("liepin.com")) {
-    return "liepin";
-  }
-  if (hostname.endsWith("lagou.com")) {
-    return "lagou";
-  }
-  if (hostname.endsWith("linkedin.com")) {
-    return "linkedin";
-  }
-
-  return "unknown";
-}
-
 export function createIngestJobEnvelope(
   capture: PageCapture,
   options: EnvelopeOptions = {}
@@ -52,6 +29,7 @@ export function createIngestJobEnvelope(
   const rawText = selectionText ?? bodyText;
   const rawTextSource = selectionText ? "selection" : bodyText ? "body" : "none";
   const pageUrl = normalizePageUrl(capture.pageUrl);
+  const siteAdapter = resolveExtensionSiteAdapter(pageUrl ?? capture.pageUrl);
 
   return {
     version: "1",
@@ -60,12 +38,13 @@ export function createIngestJobEnvelope(
     sent_at: capturedAt,
     payload: {
       source_type: "extension",
-      source_site: detectSourceSite(pageUrl ?? capture.pageUrl),
+      source_site: siteAdapter.site,
       captured_at: capturedAt,
       ...(pageUrl ? { job_url: pageUrl, page_url: pageUrl } : {}),
       ...(title ? { title_hint: title } : {}),
       ...(rawText ? { raw_text: rawText } : {}),
       source_metadata: {
+        site_adapter: siteAdapter.id,
         tab_title: title,
         raw_text_source: rawTextSource,
         selection_text_present: Boolean(selectionText),
