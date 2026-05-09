@@ -41,6 +41,17 @@ This repository currently contains the first CLI runtime slice:
 - state inspection and export
 - protocol envelope ingestion, normalization, scoring, next-action reads, and pipeline updates for external tools
 
+## Long-Term Direction
+
+The first stage is CLI-first, but the long-term direction is broader: `jobflow`
+should become a local-first job-search automation runtime that can be used from
+both a future desktop workbench and external AI agents through CLI/protocol
+entry points.
+
+See `docs/design/2026-05-09-jobflow-runtime-and-automation-roadmap.md` for the
+current roadmap covering shared runtime extraction, desktop usage, agent/skill
+integration, browser automation, and staged apply automation.
+
 ## First Phase Smoke Test
 
 ```powershell
