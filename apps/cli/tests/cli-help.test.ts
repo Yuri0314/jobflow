@@ -12,6 +12,7 @@ describe("jobflow cli", () => {
     expect(help).toContain("pipeline");
     expect(help).toContain("protocol");
     expect(help).toContain("next");
+    expect(help).toContain("automation");
   });
 
   it("prints protocol help with the generic run command", () => {
@@ -19,5 +20,12 @@ describe("jobflow cli", () => {
     const protocol = program.commands.find((command) => command.name() === "protocol");
 
     expect(protocol?.commands.some((command) => command.name() === "run")).toBe(true);
+  });
+
+  it("prints automation help with the search command", () => {
+    const program = createCli();
+    const automation = program.commands.find((command) => command.name() === "automation");
+
+    expect(automation?.commands.some((command) => command.name() === "search")).toBe(true);
   });
 });

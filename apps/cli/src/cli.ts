@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { registerAutomationCommand } from "./commands/automation.js";
 import { registerIngestCommand } from "./commands/ingest.js";
 import { registerNextCommand } from "./commands/next.js";
 import { registerNormalizeCommand } from "./commands/normalize.js";
@@ -15,6 +16,7 @@ export function createCli(): Command {
 
   program.name("jobflow").description("Personal job-search CLI runtime").version("0.1.0");
 
+  registerAutomationCommand(program, store);
   registerIngestCommand(program, store);
   registerNormalizeCommand(program, store);
   registerScoreCommand(program, store);

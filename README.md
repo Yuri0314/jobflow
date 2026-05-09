@@ -25,6 +25,7 @@ jobflow/
   packages/
     schema/
     protocol/
+    browser-automation/
   docs/
     design/
   scripts/
@@ -40,6 +41,7 @@ This repository currently contains the first CLI runtime slice:
 - resume references
 - state inspection and export
 - protocol envelope ingestion, normalization, scoring, next-action reads, and pipeline updates for external tools
+- experimental fixture automation search that collects local fixture results into ingests
 
 ## Long-Term Direction
 
@@ -79,6 +81,18 @@ corepack pnpm --filter @jobflow/cli dev resume set-default --resume-id "<resume_
 $env:JOBFLOW_HOME="D:\tmp\jobflow-smoke"
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 corepack pnpm --filter @jobflow/cli dev state export --output "D:\tmp\jobflow-smoke-state.json" --json
+```
+
+## Browser Automation Fixture Smoke Test
+
+This verifies the CLI-to-automation path without launching a real browser or touching a real
+recruiting site. The command generates a local fixture result, parses it through
+`@jobflow/browser-automation`, and stores the collected job as an ingest.
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-automation-smoke"
+corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keyword "TypeScript" --limit 1 --json
+corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 
 ## Generic Protocol Smoke Test

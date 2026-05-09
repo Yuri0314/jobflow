@@ -10,6 +10,7 @@
     "dev": "tsx src/main.ts"
   },
   "dependencies": {
+    "@jobflow/browser-automation": "workspace:*",
     "@jobflow/protocol": "workspace:*",
     "@jobflow/runtime": "workspace:*",
     "@jobflow/schema": "workspace:*",
