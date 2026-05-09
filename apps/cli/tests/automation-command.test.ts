@@ -60,10 +60,26 @@ describe("automation search", () => {
       title_hint: "Senior TypeScript Engineer",
       company_hint: "Smoke Corp"
     });
+    expect(state.automation_tasks).toHaveLength(1);
+    expect(state.automation_tasks[0]).toMatchObject({
+      task_id: response.data.task.task_id,
+      kind: "search",
+      site: "fixture",
+      keyword: "TypeScript",
+      session: "fetch",
+      status: "completed",
+      collected_count: 1,
+      ingest_ids: response.data.ingest_ids
+    });
+    expect(state.automation_tasks[0]?.action_log.map((entry) => entry.action)).toEqual([
+      "parse_search_results",
+      "persist_ingests"
+    ]);
   });
 
   it("returns a stable error before real site adapters are enabled", async () => {
-    const response = await runAutomationSearch(createFsStore(dir), {
+    const store = createFsStore(dir);
+    const response = await runAutomationSearch(store, {
       site: "boss",
       keyword: "TypeScript"
     });
@@ -72,6 +88,20 @@ describe("automation search", () => {
     if (response.ok) return;
     expect(response.error.code).toBe("ADAPTER_NOT_FOUND");
     expect(response.command).toBe("automation.search");
+
+    const state = await store.read();
+    expect(state.automation_tasks).toHaveLength(1);
+    expect(state.automation_tasks[0]).toMatchObject({
+      site: "boss",
+      keyword: "TypeScript",
+      session: "fetch",
+      status: "blocked",
+      collected_count: 0,
+      ingest_ids: [],
+      error: {
+        code: "ADAPTER_NOT_FOUND"
+      }
+    });
   });
 
   it("collects fixture search results from a local fixture URL", async () => {
@@ -174,7 +204,8 @@ describe("automation search", () => {
   });
 
   it("requires a fixture URL for Chromium session searches", async () => {
-    const response = await runAutomationSearch(createFsStore(dir), {
+    const store = createFsStore(dir);
+    const response = await runAutomationSearch(store, {
       site: "fixture",
       keyword: "Automation",
       session: "chromium"
@@ -184,6 +215,18 @@ describe("automation search", () => {
     if (response.ok) return;
     expect(response.error.code).toBe("INVALID_INPUT");
     expect(response.error.message).toContain("fixtureUrl");
+
+    const state = await store.read();
+    expect(state.automation_tasks).toHaveLength(1);
+    expect(state.automation_tasks[0]).toMatchObject({
+      site: "fixture",
+      keyword: "Automation",
+      session: "chromium",
+      status: "failed",
+      error: {
+        code: "INVALID_INPUT"
+      }
+    });
   });
 });
 

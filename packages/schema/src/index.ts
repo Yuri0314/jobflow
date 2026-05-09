@@ -25,6 +25,21 @@ export const closedReasonSchema = z.enum([
   "unknown"
 ]);
 export const resumeSourceTypeSchema = z.enum(["file", "text", "generated"]);
+export const automationTaskKindSchema = z.enum(["search"]);
+export const automationTaskStatusSchema = z.enum([
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "blocked"
+]);
+export const automationTaskSessionSchema = z.enum(["fetch", "chromium"]);
+export const automationTaskActionStatusSchema = z.enum([
+  "started",
+  "completed",
+  "failed",
+  "blocked"
+]);
 
 const metadataSchema = z.record(z.unknown());
 
@@ -131,6 +146,37 @@ export const resumeRecordSchema = z.object({
   updated_at: isoDateTimeSchema
 });
 
+export const automationTaskActionLogSchema = z.object({
+  at: isoDateTimeSchema,
+  action: z.string().min(1),
+  status: automationTaskActionStatusSchema,
+  details: metadataSchema.optional()
+});
+
+export const automationTaskRecordSchema = z.object({
+  task_id: z.string().min(1),
+  kind: automationTaskKindSchema,
+  site: z.string().min(1),
+  keyword: z.string().min(1),
+  city: z.string().min(1).optional(),
+  session: automationTaskSessionSchema,
+  status: automationTaskStatusSchema,
+  created_at: isoDateTimeSchema,
+  started_at: isoDateTimeSchema.optional(),
+  finished_at: isoDateTimeSchema.optional(),
+  collected_count: z.number().int().min(0).default(0),
+  ingest_ids: z.array(z.string().min(1)).default([]),
+  action_log: z.array(automationTaskActionLogSchema).default([]),
+  error: z
+    .object({
+      code: z.string().min(1),
+      message: z.string().min(1),
+      details: metadataSchema.optional()
+    })
+    .optional(),
+  source_metadata: metadataSchema.optional()
+});
+
 export type SourceType = z.infer<typeof sourceTypeSchema>;
 export type JobIngestPayload = z.infer<typeof jobIngestPayloadSchema>;
 export type JobIngestRecord = z.infer<typeof jobIngestRecordSchema>;
@@ -138,3 +184,4 @@ export type JobRecord = z.infer<typeof jobRecordSchema>;
 export type ScoreRecord = z.infer<typeof scoreRecordSchema>;
 export type PipelineRecord = z.infer<typeof pipelineRecordSchema>;
 export type ResumeRecord = z.infer<typeof resumeRecordSchema>;
+export type AutomationTaskRecord = z.infer<typeof automationTaskRecordSchema>;

@@ -1,4 +1,5 @@
 import {
+  automationTaskRecordSchema,
   jobIngestRecordSchema,
   jobRecordSchema,
   pipelineRecordSchema,
@@ -12,7 +13,8 @@ export const stateSchema = z.object({
   jobs: z.array(jobRecordSchema),
   scores: z.array(scoreRecordSchema),
   pipeline: z.array(pipelineRecordSchema),
-  resumes: z.array(resumeRecordSchema)
+  resumes: z.array(resumeRecordSchema),
+  automation_tasks: z.array(automationTaskRecordSchema).default([])
 });
 
 export type JobflowState = z.infer<typeof stateSchema>;
@@ -23,6 +25,7 @@ export function createEmptyState(): JobflowState {
     jobs: [],
     scores: [],
     pipeline: [],
-    resumes: []
+    resumes: [],
+    automation_tasks: []
   };
 }

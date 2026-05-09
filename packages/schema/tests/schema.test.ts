@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  automationTaskRecordSchema,
   jobIngestRecordSchema,
   jobRecordSchema,
   pipelineRecordSchema,
@@ -64,5 +65,35 @@ describe("jobflow schema", () => {
     });
 
     expect(result.status).toBe("saved");
+  });
+
+  it("accepts an automation search task audit record", () => {
+    const result = automationTaskRecordSchema.parse({
+      task_id: "task_01",
+      kind: "search",
+      site: "fixture",
+      keyword: "TypeScript",
+      city: "Remote",
+      session: "fetch",
+      status: "completed",
+      created_at: "2026-05-09T00:00:00.000Z",
+      started_at: "2026-05-09T00:00:01.000Z",
+      finished_at: "2026-05-09T00:00:02.000Z",
+      collected_count: 1,
+      ingest_ids: ["ingest_01"],
+      action_log: [
+        {
+          at: "2026-05-09T00:00:02.000Z",
+          action: "persist_ingests",
+          status: "completed",
+          details: {
+            ingest_ids: ["ingest_01"]
+          }
+        }
+      ]
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.ingest_ids).toEqual(["ingest_01"]);
   });
 });

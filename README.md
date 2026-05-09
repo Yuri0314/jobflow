@@ -87,7 +87,8 @@ corepack pnpm --filter @jobflow/cli dev state export --output "D:\tmp\jobflow-sm
 
 This verifies the CLI-to-automation path without launching a real browser or touching a real
 recruiting site. The command generates a local fixture result, parses it through
-`@jobflow/browser-automation`, and stores the collected job as an ingest.
+`@jobflow/browser-automation`, stores the collected job as an ingest, and writes
+an automation task audit record into local state.
 
 ```powershell
 $env:JOBFLOW_HOME="D:\tmp\jobflow-automation-smoke"
@@ -135,7 +136,8 @@ corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-pro
 
 External agents can trigger the fixture automation search through the generic protocol
 runner. This keeps the agent-facing contract JSON-based while reusing the same automation
-controller and local state write path as the direct CLI command.
+controller and local state write path as the direct CLI command. The run stores both
+collected ingests and an `automation_tasks` audit record.
 
 ```powershell
 $env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"

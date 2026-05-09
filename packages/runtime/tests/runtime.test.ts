@@ -7,6 +7,7 @@ import {
   createFsStore,
   normalizeIngest,
   scoreJob,
+  stateSchema,
   summarizeNext
 } from "../src/index.js";
 
@@ -30,6 +31,19 @@ describe("runtime package", () => {
     expect(state.scores).toEqual([]);
     expect(state.pipeline).toEqual([]);
     expect(state.resumes).toEqual([]);
+    expect(state.automation_tasks).toEqual([]);
+  });
+
+  it("loads legacy state without automation task records", () => {
+    const legacy = stateSchema.parse({
+      ingests: [],
+      jobs: [],
+      scores: [],
+      pipeline: [],
+      resumes: []
+    });
+
+    expect(legacy.automation_tasks).toEqual([]);
   });
 
   it("exposes normalized job, scoring, pipeline, and next-action primitives", () => {

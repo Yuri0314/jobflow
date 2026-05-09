@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +24,7 @@ describe("fs store", () => {
     expect(state.scores).toEqual([]);
     expect(state.pipeline).toEqual([]);
     expect(state.resumes).toEqual([]);
+    expect(state.automation_tasks).toEqual([]);
   });
 
   it("persists state across store instances", async () => {
@@ -39,5 +40,24 @@ describe("fs store", () => {
 
     const reloaded = await createFsStore(dir).read();
     expect(reloaded.ingests).toHaveLength(1);
+  });
+
+  it("loads legacy state files without automation task records", async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      join(dir, "state.json"),
+      JSON.stringify({
+        ingests: [],
+        jobs: [],
+        scores: [],
+        pipeline: [],
+        resumes: []
+      }),
+      "utf8"
+    );
+
+    const state = await createFsStore(dir).read();
+
+    expect(state.automation_tasks).toEqual([]);
   });
 });

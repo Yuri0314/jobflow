@@ -10,6 +10,7 @@ type StateCounts = {
   scores: number;
   pipeline: number;
   resumes: number;
+  automation_tasks: number;
 };
 
 type DefaultResumeSummary = {
@@ -38,7 +39,8 @@ export async function runStateInspect(
       jobs: state.jobs.length,
       scores: state.scores.length,
       pipeline: state.pipeline.length,
-      resumes: state.resumes.length
+      resumes: state.resumes.length,
+      automation_tasks: state.automation_tasks.length
     },
     default_resume: summarizeDefaultResume(state),
     latest_updated_at: findLatestTimestamp(state)
@@ -100,7 +102,12 @@ function findLatestTimestamp(state: JobflowState): string | null {
     ...state.jobs.map((job) => job.normalized_at),
     ...state.scores.map((score) => score.scored_at),
     ...state.pipeline.map((pipeline) => pipeline.updated_at),
-    ...state.resumes.map((resume) => resume.updated_at)
+    ...state.resumes.map((resume) => resume.updated_at),
+    ...state.automation_tasks.flatMap((task) =>
+      [task.finished_at, task.started_at, task.created_at].filter((timestamp): timestamp is string =>
+        Boolean(timestamp)
+      )
+    )
   ];
 
   return timestamps.sort((a, b) => b.localeCompare(a))[0] ?? null;

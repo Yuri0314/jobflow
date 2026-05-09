@@ -42,6 +42,26 @@ describe("state commands", () => {
       target_roles: ["backend"],
       updated_at: "2026-05-07T00:02:00.000Z"
     });
+    state.automation_tasks.push({
+      task_id: "task_01",
+      kind: "search",
+      site: "fixture",
+      keyword: "TypeScript",
+      session: "fetch",
+      status: "completed",
+      created_at: "2026-05-07T00:03:00.000Z",
+      started_at: "2026-05-07T00:03:01.000Z",
+      finished_at: "2026-05-07T00:03:02.000Z",
+      collected_count: 1,
+      ingest_ids: ["ingest_01"],
+      action_log: [
+        {
+          at: "2026-05-07T00:03:02.000Z",
+          action: "persist_ingests",
+          status: "completed"
+        }
+      ]
+    });
     await store.write(state);
 
     const response = await runStateInspect(store);
@@ -51,8 +71,9 @@ describe("state commands", () => {
     expect(response.data.counts.ingests).toBe(1);
     expect(response.data.counts.jobs).toBe(1);
     expect(response.data.counts.resumes).toBe(1);
+    expect(response.data.counts.automation_tasks).toBe(1);
     expect(response.data.default_resume?.resume_id).toBe("resume_01");
-    expect(response.data.latest_updated_at).toBe("2026-05-07T00:02:00.000Z");
+    expect(response.data.latest_updated_at).toBe("2026-05-07T00:03:02.000Z");
   });
 
   it("exports complete state to a JSON file", async () => {
@@ -75,5 +96,6 @@ describe("state commands", () => {
     await expect(stat(outputPath)).resolves.toBeTruthy();
     const exported = JSON.parse(await readFile(outputPath, "utf8"));
     expect(exported.resumes).toHaveLength(1);
+    expect(exported.automation_tasks).toEqual([]);
   });
 });

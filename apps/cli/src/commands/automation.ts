@@ -11,10 +11,15 @@ import {
   type SearchTask
 } from "@jobflow/browser-automation";
 import { type FsStore, createId } from "@jobflow/runtime";
-import { jobIngestRecordSchema } from "@jobflow/schema";
+import {
+  automationTaskRecordSchema,
+  jobIngestRecordSchema,
+  type AutomationTaskRecord,
+  type JobIngestRecord
+} from "@jobflow/schema";
 import { Command } from "commander";
 import { z } from "zod";
-import { fail, ok, type JsonResponse, writeJson } from "../output.js";
+import { fail, ok, type JsonError, type JsonResponse, writeJson } from "../output.js";
 
 const searchOptionsSchema = z.object({
   site: z.enum(["fixture", "boss", "liepin", "lagou", "linkedin"]),
@@ -67,32 +72,70 @@ export async function runAutomationSearch(
     limit: parsedOptions.data.limit,
     created_at: startedAt
   });
+  const sessionSelection = parsedOptions.data.session;
 
   if (task.site !== "fixture") {
-    return fail("automation.search", {
+    const error = {
       code: "ADAPTER_NOT_FOUND",
       message: `automation adapter is not available for site: ${task.site}`,
       details: {
         site: task.site
       }
+    };
+    await persistAutomationTask(store, {
+      task,
+      session: sessionSelection,
+      status: "blocked",
+      finishedAt: new Date().toISOString(),
+      error,
+      actionLog: [
+        {
+          at: new Date().toISOString(),
+          action: "resolve_adapter",
+          status: "blocked",
+          details: {
+            site: task.site
+          }
+        }
+      ]
     });
+    return fail("automation.search", error);
   }
 
-  const sessionSelection = parsedOptions.data.session;
   if (sessionSelection === "chromium" && !parsedOptions.data.fixtureUrl) {
-    return fail("automation.search", {
+    const error = {
       code: "INVALID_INPUT",
       message: "fixtureUrl is required when session is chromium"
+    };
+    await persistAutomationTask(store, {
+      task,
+      session: sessionSelection,
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      error,
+      actionLog: [
+        {
+          at: new Date().toISOString(),
+          action: "validate_session",
+          status: "failed",
+          details: {
+            session: sessionSelection
+          }
+        }
+      ]
     });
+    return fail("automation.search", error);
   }
 
-  const closeableSession =
-    sessionSelection === "chromium"
-      ? await (dependencies.createChromiumSession ?? createDefaultChromiumSession)()
-      : undefined;
+  let closeableSession: ChromiumPageSession | undefined;
 
   let result: AutomationResult;
   try {
+    closeableSession =
+      sessionSelection === "chromium"
+        ? await (dependencies.createChromiumSession ?? createDefaultChromiumSession)()
+        : undefined;
+
     result = await executeSearchTask(task, {
       adapterRegistry: createAdapterRegistry([fixtureAdapter]),
       pageSession:
@@ -105,6 +148,26 @@ export async function runAutomationSearch(
           ? parsedOptions.data.fixtureHtml
           : parsedOptions.data.fixtureHtml ?? createDefaultFixtureHtml(task)
     });
+  } catch (error) {
+    const jsonError = toJsonError(error);
+    await persistAutomationTask(store, {
+      task,
+      session: sessionSelection,
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      error: jsonError,
+      actionLog: [
+        {
+          at: new Date().toISOString(),
+          action: "execute_search_task",
+          status: "failed",
+          details: {
+            message: jsonError.message
+          }
+        }
+      ]
+    });
+    return fail("automation.search", jsonError);
   } finally {
     await closeableSession?.close();
   }
@@ -117,24 +180,38 @@ export async function runAutomationSearch(
     })
   );
 
-  if (records.length > 0) {
-    const state = await store.read();
-    state.ingests.push(...records);
-    await store.write(state);
-  }
-
-  result.action_log.push({
+  const persistAction = {
     at: new Date().toISOString(),
     action: "persist_ingests",
-    status: "completed",
+    status: "completed" as const,
     details: {
       ingest_ids: records.map((record) => record.ingest_id)
     }
-  });
+  };
+  const resultWithPersist: AutomationResult = {
+    ...result,
+    action_log: [...result.action_log, persistAction]
+  };
+
+  await persistAutomationTask(
+    store,
+    {
+      task,
+      session: sessionSelection,
+      status: result.status,
+      startedAt: result.started_at,
+      finishedAt: result.finished_at,
+      collectedCount: collected.length,
+      ingestIds: records.map((record) => record.ingest_id),
+      actionLog: resultWithPersist.action_log,
+      error: result.error
+    },
+    records
+  );
 
   return ok("automation.search", {
     task,
-    result,
+    result: resultWithPersist,
     collected_count: collected.length,
     ingest_ids: records.map((record) => record.ingest_id)
   });
@@ -180,6 +257,55 @@ function createDefaultFixtureHtml(task: SearchTask): string {
     <p data-summary>Fixture search result generated for ${keyword}.</p>
   </article>
 </main>`;
+}
+
+type AutomationTaskInput = {
+  task: SearchTask;
+  session: "fetch" | "chromium";
+  status: AutomationResult["status"];
+  startedAt?: string;
+  finishedAt?: string;
+  collectedCount?: number;
+  ingestIds?: string[];
+  actionLog?: AutomationTaskRecord["action_log"];
+  error?: JsonError;
+};
+
+async function persistAutomationTask(
+  store: FsStore,
+  input: AutomationTaskInput,
+  records: JobIngestRecord[] = []
+): Promise<void> {
+  const state = await store.read();
+  state.ingests.push(...records);
+  state.automation_tasks.push(createAutomationTaskRecord(input));
+  await store.write(state);
+}
+
+function createAutomationTaskRecord(input: AutomationTaskInput): AutomationTaskRecord {
+  return automationTaskRecordSchema.parse({
+    task_id: input.task.task_id,
+    kind: "search",
+    site: input.task.site,
+    keyword: input.task.keyword,
+    city: input.task.city,
+    session: input.session,
+    status: input.status,
+    created_at: input.task.created_at,
+    started_at: input.startedAt,
+    finished_at: input.finishedAt,
+    collected_count: input.collectedCount ?? 0,
+    ingest_ids: input.ingestIds ?? [],
+    action_log: input.actionLog ?? [],
+    error: input.error
+  });
+}
+
+function toJsonError(error: unknown): JsonError {
+  return {
+    code: "AUTOMATION_FAILED",
+    message: error instanceof Error ? error.message : "automation search failed"
+  };
 }
 
 function escapeHtml(value: string): string {

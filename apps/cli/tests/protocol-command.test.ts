@@ -508,6 +508,13 @@ describe("protocol automation-search", () => {
       title_hint: "Protocol Automation Engineer",
       company_hint: "Protocol Browser Co"
     });
+    expect(state.automation_tasks).toHaveLength(1);
+    expect(state.automation_tasks[0]).toMatchObject({
+      task_id: response.payload?.task_id,
+      status: "completed",
+      collected_count: 1,
+      ingest_ids: response.payload?.ingest_ids
+    });
   });
 
   it("returns a protocol error envelope for invalid automation search input", async () => {
