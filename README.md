@@ -98,6 +98,12 @@ corepack pnpm --filter @jobflow/cli dev state inspect --json
 For local fixture-page smoke tests, pass `--fixture-url <url>` to make the automation
 controller open that page before parsing results.
 
+To verify the same controller through a real Chromium/Edge DevTools session, run:
+
+```powershell
+corepack pnpm --filter @jobflow/browser-automation smoke:fixture-browser
+```
+
 ## Generic Protocol Smoke Test
 
 ```powershell

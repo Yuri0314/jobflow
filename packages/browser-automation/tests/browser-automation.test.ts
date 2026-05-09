@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChromiumLaunchArgs,
   automationResultSchema,
   createAdapterRegistry,
   executeSearchTask,
+  findChromiumExecutable,
   fetchPageSession,
   fixtureAdapter,
   parseFixtureSearchResults,
   searchTaskSchema
 } from "../src/index.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 describe("browser automation scaffold", () => {
   it("accepts a fixture search task", () => {
@@ -185,5 +189,55 @@ describe("browser automation scaffold", () => {
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+  });
+
+  it("prefers explicit Chromium executable environment variables", () => {
+    const exists = (path: string) => path === "C:/Tools/chrome.exe";
+
+    expect(
+      findChromiumExecutable(
+        {
+          CHROME_PATH: "C:/Tools/chrome.exe",
+          EDGE_PATH: "C:/Tools/msedge.exe"
+        },
+        exists
+      )
+    ).toBe("C:/Tools/chrome.exe");
+  });
+
+  it("falls back to known Chromium executable locations", () => {
+    const exists = (path: string) => path === "C:/Program Files/Microsoft/Edge/Application/msedge.exe";
+
+    expect(findChromiumExecutable({}, exists)).toBe(
+      "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
+    );
+  });
+
+  it("builds Chromium launch args for a temporary automation profile", () => {
+    const args = buildChromiumLaunchArgs({
+      userDataDir: "D:/tmp/jobflow-profile",
+      debuggingPort: 9222,
+      url: "http://127.0.0.1:3000/search",
+      headless: true
+    });
+
+    expect(args).toContain("--user-data-dir=D:/tmp/jobflow-profile");
+    expect(args).toContain("--remote-debugging-port=9222");
+    expect(args).toContain("--no-first-run");
+    expect(args).toContain("--no-default-browser-check");
+    expect(args).toContain("--headless=new");
+    expect(args.at(-1)).toBe("http://127.0.0.1:3000/search");
+  });
+
+  it("ships a Chromium fixture browser smoke script", async () => {
+    const script = await readFile(
+      join(import.meta.dirname, "../scripts/smoke-fixture-browser.mjs"),
+      "utf8"
+    );
+
+    expect(script).toContain("createChromiumPageSession");
+    expect(script).toContain("executeSearchTask");
+    expect(script).toContain("fixtureAdapter");
+    expect(script).toContain("data-job-card");
   });
 });

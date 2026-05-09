@@ -1,5 +1,13 @@
 export { createAdapterRegistry, type AdapterRegistry, type SiteAdapter } from "./adapter.js";
 export { fixtureAdapter, parseFixtureSearchResults } from "./adapters/fixture.js";
+export {
+  buildChromiumLaunchArgs,
+  createChromiumPageSession,
+  findChromiumExecutable,
+  type ChromiumLaunchArgsOptions,
+  type ChromiumPageSession,
+  type ChromiumPageSessionOptions
+} from "./chromium-page-session.js";
 export { executeSearchTask, type ExecuteSearchTaskOptions } from "./controller.js";
 export {
   automationErrorCodeSchema,
