@@ -1,6 +1,7 @@
 import {
-  automationResultSchema,
   createAdapterRegistry,
+  executeSearchTask,
+  fetchPageSession,
   fixtureAdapter,
   searchTaskSchema,
   type AutomationResult,
@@ -23,7 +24,8 @@ const searchOptionsSchema = z.object({
       if (typeof value === "string") return Number(value);
       return value;
     }, z.number().int().min(1).max(50).optional()),
-  fixtureHtml: z.string().min(1).optional()
+  fixtureHtml: z.string().min(1).optional(),
+  fixtureUrl: z.string().url().optional()
 });
 
 type AutomationSearchData = {
@@ -56,9 +58,7 @@ export async function runAutomationSearch(
     created_at: startedAt
   });
 
-  const registry = createAdapterRegistry([fixtureAdapter]);
-  const adapter = registry.get(task.site);
-  if (!adapter) {
+  if (task.site !== "fixture") {
     return fail("automation.search", {
       code: "ADAPTER_NOT_FOUND",
       message: `automation adapter is not available for site: ${task.site}`,
@@ -68,10 +68,13 @@ export async function runAutomationSearch(
     });
   }
 
-  const html = parsedOptions.data.fixtureHtml ?? createDefaultFixtureHtml(task);
-  const collected = adapter
-    .parseSearchResults(html, startedAt, task)
-    .slice(0, task.limit ?? Number.POSITIVE_INFINITY);
+  const result = await executeSearchTask(task, {
+    adapterRegistry: createAdapterRegistry([fixtureAdapter]),
+    pageSession: fetchPageSession,
+    pageUrl: parsedOptions.data.fixtureUrl,
+    html: parsedOptions.data.fixtureHtml ?? createDefaultFixtureHtml(task)
+  });
+  const collected = result.collected;
 
   const records = collected.map((payload) =>
     jobIngestRecordSchema.parse({
@@ -86,42 +89,13 @@ export async function runAutomationSearch(
     await store.write(state);
   }
 
-  const finishedAt = new Date().toISOString();
-  const result = automationResultSchema.parse({
-    task_id: task.task_id,
+  result.action_log.push({
+    at: new Date().toISOString(),
+    action: "persist_ingests",
     status: "completed",
-    site: task.site,
-    collected,
-    action_log: [
-      {
-        at: startedAt,
-        action: "create_search_task",
-        status: "completed",
-        details: {
-          keyword: task.keyword,
-          city: task.city,
-          limit: task.limit
-        }
-      },
-      {
-        at: startedAt,
-        action: "parse_fixture_results",
-        status: "completed",
-        details: {
-          collected_count: collected.length
-        }
-      },
-      {
-        at: finishedAt,
-        action: "persist_ingests",
-        status: "completed",
-        details: {
-          ingest_ids: records.map((record) => record.ingest_id)
-        }
-      }
-    ],
-    started_at: startedAt,
-    finished_at: finishedAt
+    details: {
+      ingest_ids: records.map((record) => record.ingest_id)
+    }
   });
 
   return ok("automation.search", {
@@ -145,6 +119,7 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .option("--city <city>", "search city")
     .option("--limit <limit>", "maximum number of jobs to collect")
     .option("--fixture-html <fixtureHtml>", "inline fixture HTML for local smoke testing")
+    .option("--fixture-url <fixtureUrl>", "local fixture page URL for automation smoke testing")
     .option("--json", "emit JSON output", true)
     .action(async (options) => {
       writeJson(await runAutomationSearch(store, options));

@@ -95,6 +95,9 @@ corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keywo
 corepack pnpm --filter @jobflow/cli dev state inspect --json
 ```
 
+For local fixture-page smoke tests, pass `--fixture-url <url>` to make the automation
+controller open that page before parsing results.
+
 ## Generic Protocol Smoke Test
 
 ```powershell

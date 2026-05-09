@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   automationResultSchema,
   createAdapterRegistry,
+  executeSearchTask,
+  fetchPageSession,
   fixtureAdapter,
   parseFixtureSearchResults,
   searchTaskSchema
@@ -84,5 +86,104 @@ describe("browser automation scaffold", () => {
       company_hint: "Smoke Corp"
     });
     expect(payloads[0]?.raw_text).toContain("Remote");
+  });
+
+  it("executes a fixture search task through an injected page session", async () => {
+    const openedUrls: string[] = [];
+    const result = await executeSearchTask(
+      {
+        task_id: "task_controller_01",
+        site: "fixture",
+        keyword: "TypeScript",
+        limit: 1,
+        created_at: "2026-05-09T00:00:00.000Z"
+      },
+      {
+        adapterRegistry: createAdapterRegistry([fixtureAdapter]),
+        pageSession: {
+          async open(url) {
+            openedUrls.push(url);
+            return {
+              url,
+              html: `<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/1">
+    <h2 data-job-title>Senior TypeScript Engineer</h2>
+    <p data-company>Smoke Corp</p>
+    <p data-location>Remote</p>
+    <p data-summary>Build browser automation workflows.</p>
+  </article>
+  <article data-job-card data-url="https://example.test/jobs/2">
+    <h2 data-job-title>Node.js Engineer</h2>
+    <p data-company>Example Tech</p>
+    <p data-location>Shanghai</p>
+    <p data-summary>Build local-first CLI workflows.</p>
+  </article>
+</main>`
+            };
+          }
+        },
+        pageUrl: "http://127.0.0.1:18888/search"
+      }
+    );
+
+    expect(openedUrls).toEqual(["http://127.0.0.1:18888/search"]);
+    expect(result).toMatchObject({
+      task_id: "task_controller_01",
+      status: "completed",
+      site: "fixture"
+    });
+    expect(result.collected).toHaveLength(1);
+    expect(result.collected[0]?.title_hint).toBe("Senior TypeScript Engineer");
+    expect(result.action_log.map((entry) => entry.action)).toEqual([
+      "open_page",
+      "parse_search_results"
+    ]);
+  });
+
+  it("returns a blocked result when the adapter is missing", async () => {
+    const result = await executeSearchTask(
+      {
+        task_id: "task_missing_adapter",
+        site: "boss",
+        keyword: "TypeScript",
+        created_at: "2026-05-09T00:00:00.000Z"
+      },
+      {
+        adapterRegistry: createAdapterRegistry([]),
+        html: "<main></main>"
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      error: {
+        code: "ADAPTER_NOT_FOUND"
+      }
+    });
+  });
+
+  it("fetches HTML from a local fixture page session", async () => {
+    const server = await import("node:http").then(({ createServer }) =>
+      createServer((_request, response) => {
+        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        response.end("<!doctype html><main data-fixture>ok</main>");
+      })
+    );
+
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("fixture server did not expose a port");
+      }
+
+      const page = await fetchPageSession.open(`http://127.0.0.1:${address.port}/fixture`);
+
+      expect(page.url).toContain("/fixture");
+      expect(page.html).toContain("data-fixture");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

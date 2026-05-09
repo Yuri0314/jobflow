@@ -1,3 +1,4 @@
+import { createServer, type Server } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,8 +47,7 @@ describe("automation search", () => {
     expect(response.data.collected_count).toBe(1);
     expect(response.data.ingest_ids).toHaveLength(1);
     expect(response.data.result.action_log.map((entry) => entry.action)).toEqual([
-      "create_search_task",
-      "parse_fixture_results",
+      "parse_search_results",
       "persist_ingests"
     ]);
 
@@ -73,4 +73,59 @@ describe("automation search", () => {
     expect(response.error.code).toBe("ADAPTER_NOT_FOUND");
     expect(response.command).toBe("automation.search");
   });
+
+  it("collects fixture search results from a local fixture URL", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(`<!doctype html>
+<main>
+  <article data-job-card data-url="https://example.test/jobs/from-url">
+    <h2 data-job-title>Browser Automation Engineer</h2>
+    <p data-company>Fixture Browser Co</p>
+    <p data-location>Remote</p>
+    <p data-summary>Open fixture pages and hand data to CLI workflows.</p>
+  </article>
+</main>`);
+    });
+    const url = await listen(server);
+
+    try {
+      const store = createFsStore(dir);
+      const response = await runAutomationSearch(store, {
+        site: "fixture",
+        keyword: "Automation",
+        fixtureUrl: url
+      });
+
+      expect(response.ok).toBe(true);
+      if (!response.ok) return;
+      expect(response.data.result.action_log.map((entry) => entry.action)).toEqual([
+        "open_page",
+        "parse_search_results",
+        "persist_ingests"
+      ]);
+
+      const state = await store.read();
+      expect(state.ingests[0]).toMatchObject({
+        job_url: "https://example.test/jobs/from-url",
+        title_hint: "Browser Automation Engineer",
+        company_hint: "Fixture Browser Co"
+      });
+    } finally {
+      await close(server);
+    }
+  });
 });
+
+async function listen(server: Server): Promise<string> {
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("fixture server did not expose a port");
+  }
+  return `http://127.0.0.1:${address.port}/search`;
+}
+
+async function close(server: Server): Promise<void> {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+}
