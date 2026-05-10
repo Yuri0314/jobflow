@@ -41,6 +41,7 @@ This repository currently contains the first CLI runtime slice:
 - resume references
 - state inspection and export
 - protocol envelope ingestion, normalization, scoring, next-action reads, pipeline updates, and fixture automation search for external tools
+- automation site capability discovery for humans and external agents
 - experimental fixture automation search that collects local fixture results into ingests
 
 ## Long-Term Direction
@@ -89,6 +90,12 @@ This verifies the CLI-to-automation path without launching a real browser or tou
 recruiting site. The command generates a local fixture result, parses it through
 `@jobflow/browser-automation`, stores the collected job as an ingest, and writes
 an automation task audit record into local state.
+
+To inspect which automation sites are currently enabled, fixture-only, or unavailable:
+
+```powershell
+corepack pnpm --filter @jobflow/cli dev automation sites --json
+```
 
 ```powershell
 $env:JOBFLOW_HOME="D:\tmp\jobflow-automation-smoke"
@@ -162,6 +169,22 @@ External agents can trigger the fixture automation search through the generic pr
 runner. This keeps the agent-facing contract JSON-based while reusing the same automation
 controller and local state write path as the direct CLI command. The run stores both
 collected ingests and an `automation_tasks` audit record.
+
+Agents can discover automation site availability before launching a search task:
+
+```powershell
+$env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"
+@'
+{
+  "version": "1",
+  "type": "get_automation_sites",
+  "request_id": "req_automation_sites_01",
+  "sent_at": "2026-05-09T00:00:00.000Z",
+  "payload": {}
+}
+'@ | Set-Content -Path "D:\tmp\jobflow-automation-sites-envelope.json"
+corepack pnpm --filter @jobflow/cli dev protocol run --input "D:\tmp\jobflow-automation-sites-envelope.json" --json
+```
 
 ```powershell
 $env:JOBFLOW_HOME="D:\tmp\jobflow-protocol-automation-smoke"

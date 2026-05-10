@@ -1,6 +1,7 @@
 import {
   automationSearchRequestEnvelopeSchema,
   getAutomationTaskRequestEnvelopeSchema,
+  getAutomationSitesRequestEnvelopeSchema,
   getAutomationTasksRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
@@ -17,6 +18,7 @@ import { Command } from "commander";
 import { z } from "zod";
 import {
   runAutomationSearch,
+  runAutomationSites,
   runAutomationTaskGet,
   runAutomationTasks
 } from "./automation.js";
@@ -82,6 +84,11 @@ type ProtocolAutomationTasksPayload = {
   total: number;
 };
 
+type ProtocolAutomationSitesPayload = {
+  items: Record<string, unknown>[];
+  count: number;
+};
+
 type ProtocolAutomationTaskPayload = {
   task: Record<string, unknown>;
 };
@@ -99,6 +106,7 @@ type ProtocolResponseType =
   | "get_next_actions_result"
   | "update_pipeline_result"
   | "automation_search_result"
+  | "get_automation_sites_result"
   | "get_automation_tasks_result"
   | "get_automation_task_result";
 
@@ -121,6 +129,8 @@ export async function runProtocolEnvelope(
       return runProtocolUpdatePipeline(store, rawEnvelope);
     case "automation_search":
       return runProtocolAutomationSearch(store, rawEnvelope);
+    case "get_automation_sites":
+      return runProtocolGetAutomationSites(rawEnvelope);
     case "get_automation_tasks":
       return runProtocolGetAutomationTasks(store, rawEnvelope);
     case "get_automation_task":
@@ -407,6 +417,36 @@ export async function runProtocolAutomationSearch(
   );
 }
 
+export async function runProtocolGetAutomationSites(
+  rawEnvelope: unknown
+): Promise<ResponseEnvelope> {
+  const parsedEnvelope = getAutomationSitesRequestEnvelopeSchema.safeParse(rawEnvelope);
+  const requestId = findRequestId(rawEnvelope);
+
+  if (!parsedEnvelope.success) {
+    return createProtocolEnvelope("get_automation_sites_result", requestId, false, null, {
+      code: "INVALID_PROTOCOL_ENVELOPE",
+      message: "invalid get_automation_sites request envelope",
+      details: {
+        issues: parsedEnvelope.error.issues
+      }
+    });
+  }
+
+  const queried = await runAutomationSites();
+
+  return createProtocolEnvelope<ProtocolAutomationSitesPayload>(
+    "get_automation_sites_result",
+    parsedEnvelope.data.request_id,
+    true,
+    {
+      items: queried.data.items.map((item) => ({ ...item })),
+      count: queried.data.count
+    },
+    null
+  );
+}
+
 export async function runProtocolGetAutomationTasks(
   store: FsStore,
   rawEnvelope: unknown
@@ -584,6 +624,17 @@ export function registerProtocolCommand(program: Command, store: FsStore): void 
     .action(async (options: ProtocolIngestOptions) => {
       const rawEnvelope = await readEnvelopeInput(options);
       writeJson(await runProtocolGetAutomationTasks(store, rawEnvelope));
+    });
+
+  protocol
+    .command("get-automation-sites")
+    .description("accept a get_automation_sites protocol envelope")
+    .option("--input <input>", "request envelope JSON file")
+    .option("--stdin", "read request envelope JSON from stdin")
+    .option("--json", "emit JSON output", true)
+    .action(async (options: ProtocolIngestOptions) => {
+      const rawEnvelope = await readEnvelopeInput(options);
+      writeJson(await runProtocolGetAutomationSites(rawEnvelope));
     });
 
   protocol

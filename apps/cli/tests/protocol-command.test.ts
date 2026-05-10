@@ -677,6 +677,38 @@ describe("protocol automation-search", () => {
 });
 
 describe("protocol automation task queries", () => {
+  it("lists automation site capabilities through a protocol envelope", async () => {
+    const response = await runProtocolEnvelope(createFsStore(dir), {
+      version: "1",
+      type: "get_automation_sites",
+      request_id: "req_automation_sites",
+      sent_at: "2026-05-09T00:00:00.000Z",
+      payload: {}
+    });
+
+    expect(response).toMatchObject({
+      version: "1",
+      type: "get_automation_sites_result",
+      request_id: "req_automation_sites",
+      ok: true,
+      error: null
+    });
+    expect(response.payload?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          site: "fixture",
+          status: "enabled",
+          requires_fixture: false
+        }),
+        expect.objectContaining({
+          site: "boss",
+          status: "fixture_only",
+          requires_fixture: true
+        })
+      ])
+    );
+  });
+
   it("lists automation tasks through a protocol envelope", async () => {
     const store = createFsStore(dir);
     const search = await runProtocolEnvelope(store, {

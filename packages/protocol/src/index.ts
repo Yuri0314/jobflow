@@ -15,6 +15,7 @@ export const commandRequestTypeSchema = z.enum([
   "get_next_actions",
   "update_pipeline",
   "automation_search",
+  "get_automation_sites",
   "get_automation_tasks",
   "get_automation_task"
 ]);
@@ -26,6 +27,7 @@ export const commandResponseTypeSchema = z.enum([
   "get_next_actions_result",
   "update_pipeline_result",
   "automation_search_result",
+  "get_automation_sites_result",
   "get_automation_tasks_result",
   "get_automation_task_result"
 ]);
@@ -116,6 +118,14 @@ export const getAutomationTasksRequestEnvelopeSchema = z.object({
   })
 });
 
+export const getAutomationSitesRequestEnvelopeSchema = z.object({
+  version: protocolVersionSchema,
+  type: z.literal("get_automation_sites"),
+  request_id: z.string().min(1),
+  sent_at: z.string().datetime(),
+  payload: z.object({})
+});
+
 export const getAutomationTaskRequestEnvelopeSchema = z.object({
   version: protocolVersionSchema,
   type: z.literal("get_automation_task"),
@@ -145,6 +155,9 @@ export type AutomationSearchRequestEnvelope = z.infer<
 >;
 export type GetAutomationTasksRequestEnvelope = z.infer<
   typeof getAutomationTasksRequestEnvelopeSchema
+>;
+export type GetAutomationSitesRequestEnvelope = z.infer<
+  typeof getAutomationSitesRequestEnvelopeSchema
 >;
 export type GetAutomationTaskRequestEnvelope = z.infer<
   typeof getAutomationTaskRequestEnvelopeSchema

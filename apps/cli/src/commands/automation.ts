@@ -14,10 +14,12 @@ import {
 import {
   createAutomationSearchPersistence,
   getAutomationTask,
+  listAutomationSites,
   listAutomationTasks,
   type NextItem,
   type FsStore,
-  createId
+  createId,
+  type AutomationSiteCapability
 } from "@jobflow/runtime";
 import {
   automationTaskStatusSchema,
@@ -85,6 +87,11 @@ type AutomationTasksData = {
 
 type AutomationTaskGetData = {
   task: AutomationTaskRecord;
+};
+
+type AutomationSitesData = {
+  items: AutomationSiteCapability[];
+  count: number;
 };
 
 type AutomationProcessedData = {
@@ -330,6 +337,15 @@ export async function runAutomationTaskGet(
   return ok("automation.task", { task });
 }
 
+export async function runAutomationSites(): Promise<JsonResponse<AutomationSitesData>> {
+  const items = listAutomationSites();
+
+  return ok("automation.sites", {
+    items,
+    count: items.length
+  });
+}
+
 export function registerAutomationCommand(program: Command, store: FsStore): void {
   const automation = program
     .command("automation")
@@ -349,6 +365,14 @@ export function registerAutomationCommand(program: Command, store: FsStore): voi
     .option("--json", "emit JSON output", true)
     .action(async (options) => {
       writeJson(await runAutomationSearch(store, options));
+    });
+
+  automation
+    .command("sites")
+    .description("list automation site capabilities")
+    .option("--json", "emit JSON output", true)
+    .action(async () => {
+      writeJson(await runAutomationSites());
     });
 
   automation

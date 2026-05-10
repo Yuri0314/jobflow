@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsStore } from "@jobflow/runtime";
 import {
   runAutomationSearch,
+  runAutomationSites,
   runAutomationTaskGet,
   runAutomationTasks
 } from "../src/commands/automation.js";
@@ -305,6 +306,31 @@ describe("automation search", () => {
 });
 
 describe("automation task queries", () => {
+  it("lists automation site capabilities", async () => {
+    const response = await runAutomationSites();
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          site: "fixture",
+          status: "enabled",
+          requires_fixture: false
+        }),
+        expect.objectContaining({
+          site: "boss",
+          status: "fixture_only",
+          requires_fixture: true
+        }),
+        expect.objectContaining({
+          site: "liepin",
+          status: "not_enabled"
+        })
+      ])
+    );
+  });
+
   it("lists recent automation tasks with status filtering and limit", async () => {
     const store = createFsStore(dir);
     const state = await store.read();

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   automationSearchRequestEnvelopeSchema,
   getAutomationTaskRequestEnvelopeSchema,
+  getAutomationSitesRequestEnvelopeSchema,
   getAutomationTasksRequestEnvelopeSchema,
   getNextActionsRequestEnvelopeSchema,
   ingestJobRequestEnvelopeSchema,
@@ -278,6 +279,18 @@ describe("jobflow protocol", () => {
 
     expect(result.type).toBe("get_automation_tasks");
     expect(result.payload.status).toBe("completed");
+  });
+
+  it("accepts a get_automation_sites request envelope", () => {
+    const result = getAutomationSitesRequestEnvelopeSchema.parse({
+      version: "1",
+      type: "get_automation_sites",
+      request_id: "req_sites_01",
+      sent_at: "2026-05-09T00:05:00.000Z",
+      payload: {}
+    });
+
+    expect(result.type).toBe("get_automation_sites");
   });
 
   it("accepts a get_automation_task request envelope", () => {

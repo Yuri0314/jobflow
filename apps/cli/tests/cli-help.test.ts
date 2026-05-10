@@ -26,6 +26,9 @@ describe("jobflow cli", () => {
     expect(protocol?.commands.some((command) => command.name() === "get-automation-tasks")).toBe(
       true
     );
+    expect(protocol?.commands.some((command) => command.name() === "get-automation-sites")).toBe(
+      true
+    );
     expect(protocol?.commands.some((command) => command.name() === "get-automation-task")).toBe(
       true
     );
@@ -37,6 +40,7 @@ describe("jobflow cli", () => {
     const search = automation?.commands.find((command) => command.name() === "search");
 
     expect(automation?.commands.some((command) => command.name() === "search")).toBe(true);
+    expect(automation?.commands.some((command) => command.name() === "sites")).toBe(true);
     expect(automation?.commands.some((command) => command.name() === "tasks")).toBe(true);
     expect(automation?.commands.some((command) => command.name() === "task")).toBe(true);
     expect(search?.helpInformation()).toContain("--session <session>");

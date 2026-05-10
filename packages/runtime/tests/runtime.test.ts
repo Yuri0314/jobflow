@@ -7,6 +7,7 @@ import {
   createAutomationSearchPersistence,
   createFsStore,
   getAutomationTask,
+  listAutomationSites,
   listAutomationTasks,
   normalizeIngest,
   scoreJob,
@@ -161,6 +162,32 @@ describe("runtime package", () => {
 
     expect(getAutomationTask(tasks, "task_lookup")?.status).toBe("completed");
     expect(getAutomationTask(tasks, "missing_task")).toBeNull();
+  });
+
+  it("lists automation site capabilities for agent discovery", () => {
+    const sites = listAutomationSites();
+
+    expect(sites.map((site) => site.site)).toEqual([
+      "fixture",
+      "boss",
+      "liepin",
+      "lagou",
+      "linkedin"
+    ]);
+    expect(sites.find((site) => site.site === "fixture")).toMatchObject({
+      status: "enabled",
+      requires_fixture: false,
+      supports_process_results: true
+    });
+    expect(sites.find((site) => site.site === "boss")).toMatchObject({
+      status: "fixture_only",
+      requires_fixture: true,
+      supports_process_results: true
+    });
+    expect(sites.find((site) => site.site === "liepin")).toMatchObject({
+      status: "not_enabled",
+      supports_process_results: false
+    });
   });
 
   it("creates automation search persistence records from collected payloads", () => {
