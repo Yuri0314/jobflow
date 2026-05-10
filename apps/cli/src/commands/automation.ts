@@ -126,13 +126,45 @@ export async function runAutomationSearch(
   });
   const sessionSelection = parsedOptions.data.session;
   const hasControlledFixture = Boolean(parsedOptions.data.fixtureHtml || parsedOptions.data.fixtureUrl);
+  const siteCapability = getAutomationSiteCapability(task.site);
 
-  if (task.site === "boss" && !hasControlledFixture) {
+  if (siteCapability?.status === "not_enabled") {
+    const error = {
+      code: "SITE_NOT_ENABLED",
+      message: `automation site is not enabled: ${task.site}`,
+      details: {
+        site: task.site,
+        status: siteCapability.status
+      }
+    };
+    await persistAutomationTask(store, {
+      task,
+      session: sessionSelection,
+      status: "blocked",
+      finishedAt: new Date().toISOString(),
+      error,
+      actionLog: [
+        {
+          at: new Date().toISOString(),
+          action: "validate_site_capability",
+          status: "blocked",
+          details: {
+            site: task.site,
+            status: siteCapability.status
+          }
+        }
+      ]
+    });
+    return fail("automation.search", error);
+  }
+
+  if (siteCapability?.requires_fixture && !hasControlledFixture) {
     const error = {
       code: "SITE_FIXTURE_REQUIRED",
-      message: "BOSS automation is only enabled for controlled fixture HTML or fixture URL",
+      message: `${task.site} automation requires controlled fixture HTML or fixture URL`,
       details: {
-        site: task.site
+        site: task.site,
+        status: siteCapability.status
       }
     };
     await persistAutomationTask(store, {
@@ -147,7 +179,8 @@ export async function runAutomationSearch(
           action: "validate_site_fixture",
           status: "blocked",
           details: {
-            site: task.site
+            site: task.site,
+            status: siteCapability.status
           }
         }
       ]
@@ -434,6 +467,12 @@ async function processCollectedIngests(
 
 function isSupportedAutomationSite(site: SearchTask["site"]): boolean {
   return site === "fixture" || site === "boss";
+}
+
+function getAutomationSiteCapability(
+  site: SearchTask["site"]
+): AutomationSiteCapability | undefined {
+  return listAutomationSites().find((capability) => capability.site === site);
 }
 
 async function createDefaultChromiumSession(): Promise<ChromiumPageSession> {

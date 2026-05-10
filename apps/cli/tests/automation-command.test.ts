@@ -144,6 +144,42 @@ describe("automation search", () => {
     });
   });
 
+  it("blocks sites marked not enabled in the runtime capability catalog", async () => {
+    const store = createFsStore(dir);
+    const response = await runAutomationSearch(store, {
+      site: "liepin",
+      keyword: "TypeScript",
+      fixtureHtml: "<main></main>"
+    });
+
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.error.code).toBe("SITE_NOT_ENABLED");
+    expect(response.error.details).toMatchObject({
+      site: "liepin",
+      status: "not_enabled"
+    });
+
+    const state = await store.read();
+    expect(state.automation_tasks).toHaveLength(1);
+    expect(state.automation_tasks[0]).toMatchObject({
+      site: "liepin",
+      keyword: "TypeScript",
+      status: "blocked",
+      error: {
+        code: "SITE_NOT_ENABLED"
+      }
+    });
+    expect(state.automation_tasks[0]?.action_log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "validate_site_capability",
+          status: "blocked"
+        })
+      ])
+    );
+  });
+
   it("collects controlled BOSS fixture search results without touching the real site", async () => {
     const store = createFsStore(dir);
     const response = await runAutomationSearch(store, {
