@@ -1,8 +1,9 @@
 import { createServer, type Server } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { listenOnFetchSafePort } from "@jobflow/browser-automation";
 import { createFsStore } from "@jobflow/runtime";
 import {
   runAutomationSearch,
@@ -456,17 +457,33 @@ describe("automation task queries", () => {
     expect(found.command).toBe("automation.task");
     expect(found.error.code).toBe("NOT_FOUND");
   });
+
+  it("ships a CLI browser fixture automation smoke script", async () => {
+    const script = await readFile(
+      join(import.meta.dirname, "../scripts/smoke-automation-fixture-browser.mjs"),
+      "utf8"
+    );
+    const manifest = JSON.parse(
+      await readFile(join(import.meta.dirname, "../package.json"), "utf8")
+    );
+
+    expect(manifest.scripts["smoke:automation-fixture-browser"]).toContain(
+      "smoke-automation-fixture-browser.mjs"
+    );
+    expect(script).toContain("automation");
+    expect(script).toContain("--session");
+    expect(script).toContain("--process-results");
+    expect(script).toContain("listenOnFetchSafePort");
+  });
 });
 
 async function listen(server: Server): Promise<string> {
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (!address || typeof address === "string") {
-    throw new Error("fixture server did not expose a port");
-  }
-  return `http://127.0.0.1:${address.port}/search`;
+  const port = await listenOnFetchSafePort(server);
+  return `http://127.0.0.1:${port}/search`;
 }
 
 async function close(server: Server): Promise<void> {
+  if (!server.listening) return;
+
   await new Promise<void>((resolve) => server.close(() => resolve()));
 }

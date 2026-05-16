@@ -132,6 +132,13 @@ The CLI can also use the Chromium session for local fixture URLs:
 corepack pnpm --filter @jobflow/cli dev automation search --site fixture --keyword "TypeScript" --fixture-url "<local-fixture-url>" --session chromium --json
 ```
 
+To smoke test the built CLI, runtime persistence, result processing, and a real
+headless Chromium/Edge fixture session together:
+
+```powershell
+corepack pnpm --filter @jobflow/cli smoke:automation-fixture-browser
+```
+
 For adapter development, `--site boss` is currently enabled only with controlled
 fixture HTML or fixture URLs. Without fixture input the CLI returns
 `SITE_FIXTURE_REQUIRED` and does not touch the real platform.

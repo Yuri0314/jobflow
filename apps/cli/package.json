@@ -7,7 +7,8 @@
   },
   "scripts": {
     "build": "tsup src/main.ts --format esm --dts",
-    "dev": "tsx src/main.ts"
+    "dev": "tsx src/main.ts",
+    "smoke:automation-fixture-browser": "corepack pnpm --filter @jobflow/browser-automation build && corepack pnpm build && node scripts/smoke-automation-fixture-browser.mjs"
   },
   "dependencies": {
     "@jobflow/browser-automation": "workspace:*",
