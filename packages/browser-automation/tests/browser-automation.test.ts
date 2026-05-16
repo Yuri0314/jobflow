@@ -13,6 +13,7 @@ import {
   searchTaskSchema
 } from "../src/index.js";
 import { readFile } from "node:fs/promises";
+import type { Server } from "node:http";
 import { join } from "node:path";
 
 describe("browser automation scaffold", () => {
@@ -264,20 +265,22 @@ describe("browser automation scaffold", () => {
       })
     );
 
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = await listenOnFetchSafePort(server);
     try {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("fixture server did not expose a port");
-      }
-
-      const page = await fetchPageSession.open(`http://127.0.0.1:${address.port}/fixture`);
+      const page = await fetchPageSession.open(`http://127.0.0.1:${port}/fixture`);
 
       expect(page.url).toContain("/fixture");
       expect(page.html).toContain("data-fixture");
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await closeServer(server);
     }
+  });
+
+  it("identifies fetch-forbidden ports for local fixture servers", () => {
+    expect(isFetchForbiddenPort(6000)).toBe(true);
+    expect(isFetchForbiddenPort(6667)).toBe(true);
+    expect(isFetchForbiddenPort(10080)).toBe(true);
+    expect(isFetchForbiddenPort(49152)).toBe(false);
   });
 
   it("prefers explicit Chromium executable environment variables", () => {
@@ -330,3 +333,63 @@ describe("browser automation scaffold", () => {
     expect(script).toContain("data-job-card");
   });
 });
+
+const fetchForbiddenPorts = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
+  87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
+  139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532,
+  540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723,
+  2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669,
+  6697, 10080
+]);
+
+function isFetchForbiddenPort(port: number): boolean {
+  return fetchForbiddenPorts.has(port);
+}
+
+async function listenOnFetchSafePort(server: Server): Promise<number> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        server.off("error", onError);
+      };
+      const onError = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+
+      server.once("error", onError);
+      server.listen(0, "127.0.0.1", () => {
+        cleanup();
+        resolve();
+      });
+    });
+
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("fixture server did not expose a port");
+    }
+    if (!isFetchForbiddenPort(address.port)) {
+      return address.port;
+    }
+
+    await closeServer(server);
+  }
+
+  throw new Error("fixture server could not find a fetch-safe port");
+}
+
+async function closeServer(server: Server): Promise<void> {
+  if (!server.listening) return;
+
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
