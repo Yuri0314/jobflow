@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import type { AutomationPage, AutomationPageSession } from "./page-session.js";
+import { findFetchSafePort } from "./ports.js";
 
 type EnvLike = Record<string, string | undefined>;
 type ExistsFn = (path: string) => boolean;
@@ -146,7 +146,7 @@ export async function createChromiumPageSession(
   }
   const executablePath = browserPath;
 
-  const debuggingPort = options.debuggingPort ?? (await findFreePort());
+  const debuggingPort = options.debuggingPort ?? (await findFetchSafePort());
   const userDataDir = options.userDataDir ?? (await mkdtemp(join(tmpdir(), "jobflow-chromium-")));
   const ownsProfile = !options.userDataDir;
   let browser: ChildProcess | undefined;
@@ -214,17 +214,6 @@ export async function createChromiumPageSession(
   }
 
   return { open, close };
-}
-
-async function findFreePort(): Promise<number> {
-  const instance = createServer();
-  await new Promise<void>((resolveListen) => instance.listen(0, "127.0.0.1", resolveListen));
-  const address = instance.address();
-  await new Promise<void>((resolveClose) => instance.close(() => resolveClose()));
-  if (!address || typeof address === "string") {
-    throw new Error("Could not reserve debugging port");
-  }
-  return address.port;
 }
 
 async function waitForDevTools(port: number): Promise<void> {

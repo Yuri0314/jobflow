@@ -3,7 +3,8 @@ import {
   createAdapterRegistry,
   createChromiumPageSession,
   executeSearchTask,
-  fixtureAdapter
+  fixtureAdapter,
+  listenOnFetchSafePort
 } from "../dist/index.js";
 
 let server;
@@ -83,12 +84,8 @@ async function startFixtureServer() {
 </html>`);
   });
 
-  await new Promise((resolveListen) => instance.listen(0, "127.0.0.1", resolveListen));
-  const address = instance.address();
-  if (!address || typeof address === "string") {
-    throw new Error("Could not start fixture server");
-  }
-  return { instance, port: address.port };
+  const port = await listenOnFetchSafePort(instance);
+  return { instance, port };
 }
 
 function assertEqual(actual, expected, label) {

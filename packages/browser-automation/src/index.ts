@@ -22,6 +22,11 @@ export {
   type AutomationPageSession
 } from "./page-session.js";
 export {
+  findFetchSafePort,
+  isFetchForbiddenPort,
+  listenOnFetchSafePort
+} from "./ports.js";
+export {
   automationActionLogSchema,
   automationActionStatusSchema,
   automationResultSchema,
